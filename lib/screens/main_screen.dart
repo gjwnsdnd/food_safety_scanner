@@ -92,18 +92,27 @@ class MainScreen extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              '총 분석 횟수',
+                              '분석 기록 확인하기',
                               style: TextStyle(
-                                fontSize: s(14),
-                                color: _textMuted,
-                                fontWeight: FontWeight.w500,
+                                fontSize: s(17),
+                                color: const Color(0xFF0F172A),
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
                             SizedBox(height: s(6)),
                             Text(
+                              '총 분석 횟수',
+                              style: TextStyle(
+                                fontSize: s(11.5),
+                                color: _textMuted,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            SizedBox(height: s(4)),
+                            Text(
                               '0회',
                               style: TextStyle(
-                                fontSize: s(24),
+                                fontSize: s(22),
                                 height: 1.0,
                                 color: Color(0xFF09162E),
                                 fontWeight: FontWeight.w800,
