@@ -7,10 +7,10 @@ from backend.services.db_service import get_db_service
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api", tags=["ingredients", "preferences"])
+router = APIRouter(prefix="/api")
 
 
-@router.get("/ingredients/{name}", response_model=IngredientDetail)
+@router.get("/ingredients/{name}", response_model=IngredientDetail, tags=["ingredients"])
 async def get_ingredient(name: str) -> IngredientDetail:
     # 성분명을 기준으로 DB에서 상세 정보를 조회합니다.
     db_service = get_db_service()
@@ -31,7 +31,7 @@ async def get_ingredient(name: str) -> IngredientDetail:
     )
 
 
-@router.post("/preferences", response_model=PreferencesResponse)
+@router.post("/preferences", response_model=PreferencesResponse, tags=["preferences"])
 async def save_preferences(payload: PreferencesRequest) -> PreferencesResponse:
     # 사용자 기피 성분 목록을 저장/갱신합니다.
     db_service = get_db_service()
