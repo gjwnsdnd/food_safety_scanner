@@ -47,9 +47,24 @@ def _build_upsert_filter(ingredient_data: dict) -> dict:
 
 
 def _normalize_risk_level(row: dict, source: str) -> str:
-    raw_risk = _extract_field(row, ["risk_level", "RISK_LEVEL", "RISK", "GRADE"])
+    raw_risk = _extract_field(
+        row,
+        [
+            "risk_level",
+            "RISK_LEVEL",
+            "RISK",
+            "GRADE",
+            "SPEC_VAL",
+            "MIN_STND",
+            "MAX_STND",
+        ],
+    )
     if raw_risk in {"safe", "caution", "danger"}:
         return raw_risk
+
+    # 기준치 관련 값이 있으면 보수적으로 caution으로 분류합니다.
+    if raw_risk:
+        return "caution"
 
     if source == "I0950":
         return "caution"
@@ -121,10 +136,13 @@ async def sync_food_data(end_idx: int = Query(default=100, ge=1, description="�
                         [
                             "name",
                             "NAME",
+                            "PC_KOR_NM",
                             "NUTR_CONT1",
                             "PRDLST_NM",
+                            "PRDLST_CD",
                             "FOOD_NM",
                             "ADDITIVE_NM",
+                            "ADDTV_CODE",
                             "포함물명",
                             "재료",
                         ],
@@ -135,8 +153,29 @@ async def sync_food_data(end_idx: int = Query(default=100, ge=1, description="�
 
                     ingredient_data = {
                         "name": name or "",
-                        "eng_name": _extract_field(row, ["eng_name", "ENG_NAME", "PRDLST_NM_ENG", "FOOD_NM_ENG", "ADDITIVE_NM_ENG"]),
-                        "classification": _extract_field(row, ["classification", "CLASSIFICATION", "PRDLST_CTGRY_NM", "CLASS_NM", "TYPE_NM"]),
+                        "eng_name": _extract_field(
+                            row,
+                            [
+                                "eng_name",
+                                "ENG_NAME",
+                                "PC_ENG_NM",
+                                "PRDLST_NM_ENG",
+                                "FOOD_NM_ENG",
+                                "ADDITIVE_NM_ENG",
+                            ],
+                        ),
+                        "classification": _extract_field(
+                            row,
+                            [
+                                "classification",
+                                "CLASSIFICATION",
+                                "SROCE",
+                                "FOOD_CTGRY",
+                                "PRDLST_CTGRY_NM",
+                                "CLASS_NM",
+                                "TYPE_NM",
+                            ],
+                        ),
                         "risk_level": _normalize_risk_level(row, source),
                         "source": source,
                     }
