@@ -68,7 +68,7 @@ async def sync_food_data(end_idx: int = Query(default=100, ge=1, description="�
         logger.error("MongoDB connection is not healthy")
         raise HTTPException(status_code=500, detail="MongoDB 연결 상태를 확인할 수 없습니다.")
 
-    saved_count = 0
+    unique_documents: dict[tuple[str, str], dict] = {}
     timeout = httpx.Timeout(30.0)
 
     try:
@@ -102,20 +102,25 @@ async def sync_food_data(end_idx: int = Query(default=100, ge=1, description="�
                         "source": source,
                     }
 
-                    try:
-                        await db_service.db[FOOD_INGREDIENTS_COLLECTION].update_one(
-                            {"name": name},
-                            {"$set": ingredient_data},
-                            upsert=True,
-                        )
-                        saved_count += 1
-                    except ValueError:
-                        logger.warning("Skipping invalid ingredient payload from %s: %s", source, row)
-                    except PyMongoError:
-                        logger.exception("Failed to save ingredient from %s: %s", source, name)
-                        raise HTTPException(status_code=500, detail="MongoDB 저장 중 오류가 발생했습니다.")
+                    unique_documents[(name.lower(), source)] = ingredient_data
 
-        message = f"식품원재료/첨가물 데이터를 MongoDB에 동기화했습니다."
+        saved_count = 0
+        collection = db_service.db[FOOD_INGREDIENTS_COLLECTION]
+        for ingredient_data in unique_documents.values():
+            try:
+                await collection.replace_one(
+                    {"name": ingredient_data["name"], "source": ingredient_data["source"]},
+                    ingredient_data,
+                    upsert=True,
+                )
+                saved_count += 1
+            except ValueError:
+                logger.warning("Skipping invalid ingredient payload: %s", ingredient_data)
+            except PyMongoError:
+                logger.exception("Failed to save ingredient: %s", ingredient_data.get("name"))
+                raise HTTPException(status_code=500, detail="MongoDB 저장 중 오류가 발생했습니다.")
+
+        message = "식품원재료/첨가물 데이터를 MongoDB에 동기화했습니다."
         logger.info("Food data sync completed: saved_count=%d", saved_count)
         return {"status": "success", "message": message, "count": saved_count}
     except HTTPException:
