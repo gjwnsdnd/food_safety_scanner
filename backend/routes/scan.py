@@ -13,7 +13,7 @@ router = APIRouter(prefix="/api", tags=["scan"])
 
 
 def _extract_candidate_names(product_name: str) -> list[str]:
-    # 제품명 문자열에서 성분 후보명을 추출합니다.
+    # 제품명 문자열에서 성분 후보명을 추출합니다..
     normalized = (
         product_name.replace("\n", ",")
         .replace("/", ",")
