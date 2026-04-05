@@ -1,10 +1,9 @@
 import logging
+from typing import Literal
 
-from collections import OrderedDict
+from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel, Field
 
-from fastapi import APIRouter, HTTPException
-
-from backend.models.ingredient import Ingredient, ScanRequest, ScanResponse
 from backend.services.db_service import get_db_service
 
 logger = logging.getLogger(__name__)
@@ -12,110 +11,64 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["scan"])
 
 
-def _extract_candidate_names(product_name: str) -> list[str]:
-    # 제품명 문자열에서 성분 후보명을 추출합니다..
-    normalized = (
-        product_name.replace("\n", ",")
-        .replace("/", ",")
-        .replace(";", ",")
-        .replace("|", ",")
-        .replace("·", ",")
-    )
-    tokens = [token.strip() for token in normalized.split(",") if token.strip()]
-    # 중복 제거 + 순서 유지
-    return list(OrderedDict.fromkeys(tokens))
+class IngredientSearchResult(BaseModel):
+    name: str = Field(..., description="성분명")
+    eng_name: str = Field(..., description="영문명")
+    classification: str = Field(..., description="분류")
+    risk_level: Literal["safe", "caution", "danger"] = Field(..., description="위험도")
+    source: str = Field(..., description="데이터 출처")
 
 
-def _normalize_risk_level(value: str | None) -> str:
-    if value in {"safe", "caution", "danger"}:
-        return value
-    return "caution"
+class ScanSearchResponse(BaseModel):
+    status: str = Field(default="success", description="응답 상태")
+    product_name: str = Field(..., description="검색어")
+    ingredients: list[IngredientSearchResult] = Field(default_factory=list, description="검색된 성분 목록")
+    count: int = Field(..., ge=0, description="검색 결과 수")
 
 
-@router.post("/scan", response_model=ScanResponse)
-async def scan_ingredients(payload: ScanRequest) -> ScanResponse:
-    # 제품명을 받아 성분 분석 결과를 반환합니다.
-    logger.info(
-        "Scan requested: product_name=%s avoided_count=%d",
-        payload.product_name,
-        len(payload.avoided_ingredients),
-    )
+@router.post("/scan", response_model=ScanSearchResponse)
+async def scan_ingredients(product_name: str = Query(..., min_length=1, description="검색할 성분명")) -> ScanSearchResponse:
+    # 제품명으로 MongoDB의 food_ingredients 컬렉션을 검색합니다.
+    search_term = product_name.strip()
+    logger.info("Food ingredient search requested: product_name=%s", search_term)
 
     try:
         db_service = get_db_service()
-        avoided_set = {item.strip().lower() for item in payload.avoided_ingredients if item.strip()}
+        if not await db_service.check_connection():
+            logger.error("MongoDB connection check failed for search: product_name=%s", search_term)
+            raise HTTPException(status_code=500, detail="MongoDB 연결 상태를 확인할 수 없습니다.")
 
-        candidates = _extract_candidate_names(payload.product_name)
-        if payload.product_name.strip() and payload.product_name.strip() not in candidates:
-            candidates.insert(0, payload.product_name.strip())
+        query = {"name": {"$regex": search_term, "$options": "i"}}
+        logger.info("MongoDB search query: %s", query)
 
-        ingredient_docs_by_name: OrderedDict[str, dict] = OrderedDict()
-        for candidate in candidates:
-            doc = await db_service.get_ingredient(candidate)
-            if doc is None:
-                continue
-            key = str(doc.get("name", candidate)).strip().lower()
-            ingredient_docs_by_name[key] = doc
+        try:
+            cursor = db_service.db["food_ingredients"].find(query, {"_id": 0}).limit(100)
+            documents = await cursor.to_list(length=100)
+        except Exception:
+            logger.exception("MongoDB query failed: product_name=%s", search_term)
+            raise HTTPException(status_code=500, detail="MongoDB 조회 중 오류가 발생했습니다.")
 
-        # 제품을 찾지 못한 경우(또는 매칭 성분 없음) 빈 리스트 반환
-        if not ingredient_docs_by_name:
-            logger.info("No ingredients found for product_name=%s", payload.product_name)
-            return ScanResponse(
-                product_name=payload.product_name,
-                ingredients=[],
-                warning_count=0,
-                risk_level="safe",
+        ingredients = [
+            IngredientSearchResult(
+                name=str(document.get("name", "")),
+                eng_name=str(document.get("eng_name", "")),
+                classification=str(document.get("classification", "")),
+                risk_level=document.get("risk_level", "safe"),
+                source=str(document.get("source", "")),
             )
+            for document in documents
+        ]
 
-        ingredients: list[Ingredient] = []
-        warning_count = 0
-        has_danger = False
+        count = len(ingredients)
+        logger.info("Found ingredients count=%d for product_name=%s", count, search_term)
 
-        for doc in ingredient_docs_by_name.values():
-            name = str(doc.get("name", "")).strip() or "Unknown"
-            risk_level = _normalize_risk_level(doc.get("risk_level"))
-            description = str(doc.get("description", "설명 정보가 없습니다.")).strip() or "설명 정보가 없습니다."
-            alternatives = [str(item) for item in doc.get("alternatives", []) if str(item).strip()]
-
-            # 사용자가 기피한 성분이면 최소 caution으로 처리합니다.
-            if name.lower() in avoided_set and risk_level == "safe":
-                risk_level = "caution"
-                description = f"{description} (사용자 기피 성분)"
-
-            if risk_level in {"caution", "danger"}:
-                warning_count += 1
-            if risk_level == "danger":
-                has_danger = True
-
-            ingredients.append(
-                Ingredient(
-                    name=name,
-                    risk_level=risk_level,
-                    description=description,
-                    alternatives=alternatives,
-                )
-            )
-
-        overall_risk_level = "danger" if has_danger else ("caution" if warning_count > 0 else "safe")
-
-        response = ScanResponse(
-            product_name=payload.product_name,
+        return ScanSearchResponse(
+            product_name=search_term,
             ingredients=ingredients,
-            warning_count=warning_count,
-            risk_level=overall_risk_level,
+            count=count,
         )
-
-        logger.info(
-            "Scan completed: product_name=%s ingredients=%d warnings=%d risk=%s",
-            payload.product_name,
-            len(ingredients),
-            warning_count,
-            overall_risk_level,
-        )
-        return response
-    except RuntimeError as exc:
-        logger.exception("Database error during scan: product_name=%s", payload.product_name)
-        raise HTTPException(status_code=500, detail="DB 조회 중 오류가 발생했습니다.") from exc
-    except Exception as exc:
-        logger.exception("Failed to analyze product: %s", payload.product_name)
-        raise HTTPException(status_code=500, detail="성분 분석에 실패했습니다.") from exc
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Unexpected error during food ingredient search: product_name=%s", search_term)
+        raise HTTPException(status_code=500, detail="성분 검색에 실패했습니다.")
