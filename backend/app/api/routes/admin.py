@@ -28,6 +28,24 @@ def _extract_field(row: dict, candidates: Iterable[str], default: str = "") -> s
     return default
 
 
+def _build_upsert_filter(ingredient_data: dict) -> dict:
+    name = ingredient_data.get("name", "")
+    source = ingredient_data.get("source", "")
+    eng_name = ingredient_data.get("eng_name", "")
+    classification = ingredient_data.get("classification", "")
+
+    if name:
+        return {"name": name, "source": source}
+
+    # name이 비어 있어도 문서를 식별할 수 있도록 보조 키를 함께 사용합니다.
+    return {
+        "name": "",
+        "source": source,
+        "eng_name": eng_name,
+        "classification": classification,
+    }
+
+
 def _normalize_risk_level(row: dict, source: str) -> str:
     raw_risk = _extract_field(row, ["risk_level", "RISK_LEVEL", "RISK", "GRADE"])
     if raw_risk in {"safe", "caution", "danger"}:
@@ -68,7 +86,8 @@ async def sync_food_data(end_idx: int = Query(default=100, ge=1, description="�
         logger.error("MongoDB connection is not healthy")
         raise HTTPException(status_code=500, detail="MongoDB 연결 상태를 확인할 수 없습니다.")
 
-    unique_documents: dict[tuple[str, str], dict] = {}
+    unique_documents: dict[tuple[str, str, str, str], dict] = {}
+    name_extract_failed_total = 0
     timeout = httpx.Timeout(30.0)
 
     try:
@@ -80,6 +99,7 @@ async def sync_food_data(end_idx: int = Query(default=100, ge=1, description="�
 
             for source, url, dataset_candidates in api_jobs:
                 rows = []
+                name_extract_failed_by_source = 0
                 for dataset_key in dataset_candidates:
                     try:
                         rows = await _fetch_api_rows(client, url, API_KEY, end_idx, dataset_key)
@@ -89,27 +109,62 @@ async def sync_food_data(end_idx: int = Query(default=100, ge=1, description="�
                         logger.exception("Failed to fetch food API rows: source=%s", source)
                         raise HTTPException(status_code=502, detail=f"{source} 공공 API 호출에 실패했습니다.")
 
+                for idx, sample_row in enumerate(rows[:3], start=1):
+                    logger.info("%s row sample #%d: %s", source, idx, sample_row)
+
+                if rows:
+                    logger.info("%s first row keys: %s", source, sorted(rows[0].keys()))
+
                 for row in rows:
-                    name = _extract_field(row, ["name", "NAME", "NUTR_CONT1", "PRDLST_NM", "FOOD_NM", "ADDITIVE_NM"])
+                    name = _extract_field(
+                        row,
+                        [
+                            "name",
+                            "NAME",
+                            "NUTR_CONT1",
+                            "PRDLST_NM",
+                            "FOOD_NM",
+                            "ADDITIVE_NM",
+                            "포함물명",
+                            "재료",
+                        ],
+                    )
                     if not name:
-                        continue
+                        name_extract_failed_by_source += 1
+                        logger.warning("Name extraction failed for %s row: %s", source, row)
 
                     ingredient_data = {
-                        "name": name,
+                        "name": name or "",
                         "eng_name": _extract_field(row, ["eng_name", "ENG_NAME", "PRDLST_NM_ENG", "FOOD_NM_ENG", "ADDITIVE_NM_ENG"]),
                         "classification": _extract_field(row, ["classification", "CLASSIFICATION", "PRDLST_CTGRY_NM", "CLASS_NM", "TYPE_NM"]),
                         "risk_level": _normalize_risk_level(row, source),
                         "source": source,
                     }
 
-                    unique_documents[(name.lower(), source)] = ingredient_data
+                    unique_key = (
+                        ingredient_data["name"].lower(),
+                        source,
+                        ingredient_data["eng_name"].lower(),
+                        ingredient_data["classification"].lower(),
+                    )
+                    unique_documents[unique_key] = ingredient_data
+
+                name_extract_failed_total += name_extract_failed_by_source
+                logger.info("%s rows with empty name: %d", source, name_extract_failed_by_source)
+
+        if unique_documents:
+            logger.info("Final ingredient_data sample: %s", next(iter(unique_documents.values())))
+        else:
+            logger.warning("No ingredient data prepared for saving")
+
+        logger.info("Total rows with empty name: %d", name_extract_failed_total)
 
         saved_count = 0
         collection = db_service.db[FOOD_INGREDIENTS_COLLECTION]
         for ingredient_data in unique_documents.values():
             try:
                 await collection.replace_one(
-                    {"name": ingredient_data["name"], "source": ingredient_data["source"]},
+                    _build_upsert_filter(ingredient_data),
                     ingredient_data,
                     upsert=True,
                 )
