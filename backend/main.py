@@ -10,6 +10,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from backend.routes.ingredients import router as ingredients_router
 from backend.routes.scan import router as scan_router
+from backend.app.api.routes.admin import router as admin_router
 from backend.services.db_service import get_db_service, init_db_service
 
 
@@ -77,6 +78,7 @@ app.add_middleware(
 # 라우터 등록
 app.include_router(scan_router)
 app.include_router(ingredients_router)
+app.include_router(admin_router)
 
 
 @app.get("/health")
