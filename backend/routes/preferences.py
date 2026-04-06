@@ -32,7 +32,6 @@ def _normalize_groups(raw_groups: list[dict] | None) -> list[PreferencesGroup]:
             PreferencesGroup(
                 group_name=name,
                 ingredients=_normalize_items(list(ingredients) if isinstance(ingredients, list) else []),
-                avoided_ingredients=_normalize_items(list(ingredients) if isinstance(ingredients, list) else []),
             )
         )
 

@@ -11,7 +11,6 @@ class Ingredient(BaseModel):
 class PreferencesGroup(BaseModel):
     group_name: str = Field(..., min_length=1, description="그룹 이름")
     ingredients: list[str] = Field(default_factory=list, description="그룹 성분 목록")
-    avoided_ingredients: list[str] = Field(default_factory=list, description="기피 성분 목록")
 
 
 class PreferencesRequest(BaseModel):

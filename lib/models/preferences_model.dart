@@ -8,8 +8,7 @@ class PreferencesGroup {
   });
 
   factory PreferencesGroup.fromJson(Map<String, dynamic> json) {
-    final dynamic rawIngredients =
-        json['ingredients'] ?? json['avoided_ingredients'] ?? [];
+    final dynamic rawIngredients = json['ingredients'] ?? [];
 
     return PreferencesGroup(
       groupName: json['group_name'] ?? '',
@@ -20,7 +19,6 @@ class PreferencesGroup {
   Map<String, dynamic> toJson() => {
     'group_name': groupName,
     'ingredients': ingredients,
-    'avoided_ingredients': ingredients,
   };
 }
 
