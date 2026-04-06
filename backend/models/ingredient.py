@@ -2,23 +2,24 @@ from pydantic import BaseModel, Field
 
 
 class Ingredient(BaseModel):
-    # 성분 이름
-    name: str = Field(..., min_length=1, description="성분 이름", examples=["Paraben"])
-    # 성분 설명
+    name: str = Field(..., min_length=1, description="성분 이름")
     description: str = Field(default="", description="설명")
-    # 주의사항
     caution: str = Field(default="", description="주의사항")
+    categories: list[str] = Field(default_factory=list, description="카테고리")
 
 
+class AvoidanceGroup(BaseModel):
+    group_name: str = Field(..., min_length=1, description="그룹 이름")
+    avoided_ingredients: list[str] = Field(default_factory=list, description="기피 성분 목록")
+    categories: list[str] = Field(default_factory=list, description="카테고리 목록")
 
 
 class PreferencesRequest(BaseModel):
-    # 사용자가 기피할 성분 목록을 저장합니다.
     user_id: str = Field(..., min_length=1, description="사용자 식별자")
+    group_name: str = Field(..., min_length=1, description="그룹 이름")
     avoided_ingredients: list[str] = Field(default_factory=list, description="기피 성분 목록")
 
 
 class PreferencesResponse(BaseModel):
-    # 저장 후 현재 설정 상태를 반환합니다.
     user_id: str
-    avoided_ingredients: list[str]
+    groups: list[AvoidanceGroup] = Field(default_factory=list, description="저장된 그룹")

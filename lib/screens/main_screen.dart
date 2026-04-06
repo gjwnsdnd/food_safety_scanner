@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'analysis_result_screen.dart';
 import 'avoided_ingredient_settings_screen.dart';
 import 'history_screen.dart';
+import 'preferences_screen.dart';
 
 class MainScreen extends StatelessWidget {
   const MainScreen({Key? key}) : super(key: key);
@@ -55,7 +56,12 @@ class MainScreen extends StatelessWidget {
                     ),
                   ),
                   IconButton(
-                    onPressed: () {},
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const PreferencesScreen()),
+                      );
+                    },
                     icon: Icon(Icons.settings_outlined, size: s(22)),
                     color: const Color(0xFF2B3443),
                     tooltip: '설정',
