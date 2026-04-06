@@ -1,9 +1,9 @@
 import logging
-from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
+from backend.data.ingredient_details import INGREDIENT_DETAILS
 from backend.services.db_service import get_db_service
 
 logger = logging.getLogger(__name__)
@@ -15,7 +15,8 @@ class IngredientSearchResult(BaseModel):
     name: str = Field(..., description="성분명")
     eng_name: str = Field(..., description="영문명")
     classification: str = Field(..., description="분류")
-    risk_level: Literal["safe", "caution", "danger"] = Field(..., description="위험도")
+    description: str = Field(default="", description="성분 설명")
+    caution: str = Field(default="", description="주의사항")
     source: str = Field(..., description="데이터 출처")
 
 
@@ -24,6 +25,19 @@ class ScanSearchResponse(BaseModel):
     product_name: str = Field(..., description="검색어")
     ingredients: list[IngredientSearchResult] = Field(default_factory=list, description="검색된 성분 목록")
     count: int = Field(..., ge=0, description="검색 결과 수")
+
+
+def _normalize_name(text: str) -> str:
+    return "".join(str(text).strip().lower().split())
+
+
+DETAILS_BY_NORMALIZED_NAME = {
+    _normalize_name(name): detail for name, detail in INGREDIENT_DETAILS.items()
+}
+
+
+def _find_detail_by_name(name: str) -> dict[str, str] | None:
+    return DETAILS_BY_NORMALIZED_NAME.get(_normalize_name(name))
 
 
 @router.post("/scan", response_model=ScanSearchResponse)
@@ -51,9 +65,13 @@ async def scan_ingredients(product_name: str = Query(..., min_length=1, descript
         ingredients = [
             IngredientSearchResult(
                 name=str(document.get("name", "")),
-                eng_name=str(document.get("eng_name", "")),
+                eng_name=(
+                    str(document.get("eng_name", ""))
+                    or ((_find_detail_by_name(str(document.get("name", ""))) or {}).get("eng_name", ""))
+                ),
                 classification=str(document.get("classification", "")),
-                risk_level=document.get("risk_level", "safe"),
+                description=((_find_detail_by_name(str(document.get("name", ""))) or {}).get("description", "")),
+                caution=((_find_detail_by_name(str(document.get("name", ""))) or {}).get("caution", "")),
                 source=str(document.get("source", "")),
             )
             for document in documents

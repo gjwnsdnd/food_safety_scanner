@@ -46,31 +46,6 @@ def _build_upsert_filter(ingredient_data: dict) -> dict:
     }
 
 
-def _normalize_risk_level(row: dict, source: str) -> str:
-    raw_risk = _extract_field(
-        row,
-        [
-            "risk_level",
-            "RISK_LEVEL",
-            "RISK",
-            "GRADE",
-            "SPEC_VAL",
-            "MIN_STND",
-            "MAX_STND",
-        ],
-    )
-    if raw_risk in {"safe", "caution", "danger"}:
-        return raw_risk
-
-    # 기준치 관련 값이 있으면 보수적으로 caution으로 분류합니다.
-    if raw_risk:
-        return "caution"
-
-    if source == "I0950":
-        return "caution"
-    return "safe"
-
-
 def _extract_rows(payload: dict, dataset_key: str) -> list[dict]:
     dataset = payload.get(dataset_key, {})
     if not isinstance(dataset, dict):
@@ -176,7 +151,6 @@ async def sync_food_data(end_idx: int = Query(default=100, ge=1, description="�
                                 "TYPE_NM",
                             ],
                         ),
-                        "risk_level": _normalize_risk_level(row, source),
                         "source": source,
                     }
 
