@@ -3,7 +3,6 @@ import logging
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from backend.data.ingredient_details import INGREDIENT_DETAILS
 from backend.services.db_service import get_db_service
 
 logger = logging.getLogger(__name__)
@@ -27,17 +26,17 @@ class ScanSearchResponse(BaseModel):
     count: int = Field(..., ge=0, description="검색 결과 수")
 
 
-def _normalize_name(text: str) -> str:
-    return "".join(str(text).strip().lower().split())
-
-
-DETAILS_BY_NORMALIZED_NAME = {
-    _normalize_name(name): detail for name, detail in INGREDIENT_DETAILS.items()
-}
-
-
-def _find_detail_by_name(name: str) -> dict[str, str] | None:
-    return DETAILS_BY_NORMALIZED_NAME.get(_normalize_name(name))
+async def _find_detail_by_name(db_service, ingredient_name: str) -> dict[str, str] | None:
+    # MongoDB의 ingredients 컬렉션에서 성분 상세정보를 조회합니다.
+    try:
+        detail = await db_service.db["ingredients"].find_one(
+            {"name": ingredient_name},
+            {"_id": 0, "name": 0},
+        )
+        return detail
+    except Exception:
+        logger.exception("Failed to fetch ingredient detail: ingredient_name=%s", ingredient_name)
+        return None
 
 
 @router.post("/scan", response_model=ScanSearchResponse)
@@ -62,20 +61,23 @@ async def scan_ingredients(product_name: str = Query(..., min_length=1, descript
             logger.exception("MongoDB query failed: product_name=%s", search_term)
             raise HTTPException(status_code=500, detail="MongoDB 조회 중 오류가 발생했습니다.")
 
-        ingredients = [
-            IngredientSearchResult(
-                name=str(document.get("name", "")),
-                eng_name=(
-                    str(document.get("eng_name", ""))
-                    or ((_find_detail_by_name(str(document.get("name", ""))) or {}).get("eng_name", ""))
-                ),
-                classification=str(document.get("classification", "")),
-                description=((_find_detail_by_name(str(document.get("name", ""))) or {}).get("description", "")),
-                caution=((_find_detail_by_name(str(document.get("name", ""))) or {}).get("caution", "")),
-                source=str(document.get("source", "")),
+        ingredients = []
+        for document in documents:
+            ingredient_name = str(document.get("name", ""))
+            detail = await _find_detail_by_name(db_service, ingredient_name)
+            if detail is None:
+                detail = {}
+
+            ingredients.append(
+                IngredientSearchResult(
+                    name=ingredient_name,
+                    eng_name=str(document.get("eng_name", "")),
+                    classification=str(document.get("classification", "")),
+                    description=detail.get("description", ""),
+                    caution=detail.get("caution", ""),
+                    source=str(document.get("source", "")),
+                )
             )
-            for document in documents
-        ]
 
         count = len(ingredients)
         logger.info("Found ingredients count=%d for product_name=%s", count, search_term)
