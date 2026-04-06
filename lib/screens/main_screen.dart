@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'analysis_result_screen.dart';
 import 'avoided_ingredient_settings_screen.dart';
 import 'history_screen.dart';
+import 'preferences_screen.dart';
 
 class MainScreen extends StatelessWidget {
   const MainScreen({Key? key}) : super(key: key);
@@ -175,7 +176,7 @@ class MainScreen extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => const AvoidedIngredientSettingsScreen(),
+                        builder: (_) => const PreferencesScreen(),
                       ),
                     );
                   },
