@@ -164,44 +164,51 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
   }
 
   Future<void> _saveGroup(String groupName) async {
-    if (groupName.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('그룹명을 입력하세요.')),
-      );
-      return;
-    }
-
-    try {
-      setState(() => _isSaving = true);
-
-      // 일단 로컬에 저장 (실제 API는 구현 시점에 수정)
-      final existing =
-          _savedGroups.indexWhere((g) => g.groupName == groupName);
-      final newGroup = PreferencesGroup(
-        groupName: groupName,
-        ingredients: List.from(_selectedIngredients),
-      );
-
-      setState(() {
-        if (existing >= 0) {
-          _savedGroups[existing] = newGroup;
-        } else {
-          _savedGroups.add(newGroup);
-        }
-        _activeGroupName = groupName;
-        _isSaving = false;
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('그룹 "$groupName"이(가) 저장되었습니다.')),
-      );
-    } catch (e) {
-      setState(() => _isSaving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('그룹 저장 실패: $e')),
-      );
-    }
+  if (groupName.trim().isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('그룹명을 입력하세요.')),
+    );
+    return;
   }
+
+  try {
+    setState(() => _isSaving = true);
+
+    // 새 그룹 생성
+    final existing = _savedGroups.indexWhere((g) => g.groupName == groupName);
+    final newGroup = PreferencesGroup(
+      groupName: groupName,
+      ingredients: List.from(_selectedIngredients),
+    );
+
+    setState(() {
+      if (existing >= 0) {
+        _savedGroups[existing] = newGroup;
+      } else {
+        _savedGroups.add(newGroup);
+      }
+      _activeGroupName = groupName;
+    });
+
+    // ✅ 백엔드에 groups 저장!
+    await _apiService.savePreferences(
+      _userId,
+      List.from(_selectedIngredients),
+      _savedGroups.map((g) => g.toJson()).toList(),
+    );
+
+    setState(() => _isSaving = false);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('그룹 "$groupName"이(가) 저장되었습니다.')),
+    );
+  } catch (e) {
+    setState(() => _isSaving = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('그룹 저장 실패: $e')),
+    );
+  }
+}
 
   void _deleteGroup(String groupName) {
     showDialog(
