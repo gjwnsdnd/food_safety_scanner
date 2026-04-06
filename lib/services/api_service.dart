@@ -18,6 +18,41 @@ class ApiService {
 
 	final Dio _dio;
 
+	Future<Map<String, dynamic>> getPreferences(String userId) async {
+		try {
+			final response = await _dio.get<Map<String, dynamic>>(
+				'/api/preferences/$userId',
+			);
+			return response.data ?? {};
+		} on DioException catch (e) {
+			if (e.response?.statusCode == 404) {
+				return {'avoided_ingredients': [], 'groups': []};
+			}
+			final statusCode = e.response?.statusCode;
+			throw Exception('기피 성분 조회 실패 ($statusCode): ${e.response?.data}');
+		}
+	}
+
+	Future<void> savePreferences({
+		required String userId,
+		required List<String> avoidedIngredients,
+		List<Map<String, dynamic>> groups = const [],
+	}) async {
+		try {
+			await _dio.post<void>(
+				'/api/preferences',
+				data: {
+					'user_id': userId,
+					'avoided_ingredients': avoidedIngredients,
+					'groups': groups,
+				},
+			);
+		} on DioException catch (e) {
+			final statusCode = e.response?.statusCode;
+			throw Exception('기피 성분 저장 실패 ($statusCode): ${e.response?.data}');
+		}
+	}
+
 	Future<Map<String, dynamic>> scanIngredients(String productName) async {
 		if (productName.trim().isEmpty) {
 			throw ArgumentError('productName cannot be empty');
