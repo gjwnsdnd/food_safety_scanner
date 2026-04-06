@@ -13,31 +13,32 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
   final ApiService _apiService = ApiService();
   final String _userId = 'default';
 
-  // 17개 성분 데이터 (가나다순)
+  // MongoDB에 저장된 17개 성분 데이터 (가나다순)
   static const List<String> _allIngredients = [
     '계란',
-    '고카페인',
     '과라나',
-    '구연산',
+    '꿀',
     '대두',
+    '땅콩',
     '밀',
+    '새우',
+    '아황산나트륨',
+    '안식향산',
+    '알코올(에탄올)',
     '우유',
-    '참깨',
-    '토마토',
-    '파프리카',
-    '해산물',
-    '혼합곡물',
-    '효모',
-    '키위',
-    '헤이즐넛',
-    '합성첨가물',
+    '적색제40호',
+    '젤라틴',
+    '카르민',
+    '카페인',
+    '황색제 4호',
+    'L-글루탐산나트륨',
   ];
 
   static const Map<String, List<String>> _categoryIngredients = {
-    '알레르기': ['계란', '고카페인', '과라나', '구연산', '대두', '밀', '우유', '참깨', '해산물'],
-    '비건': ['계란', '고카페인', '우유'],
-    '임산부': ['과라나', '고카페인', '구연산', '효모'],
-    '영유아': ['계란', '고카페인', '과라나'],
+    '알레르기': ['계란', '대두', '땅콩', '밀', '새우', '우유'],
+    '비건': ['젤라틴', '카르민'],
+    '임산부': ['과라나', '카페인', '안식향산', '알코올(에탄올)'],
+    '영유아': ['꿀', '아황산나트륨', '적색제40호', '황색제 4호', 'L-글루탐산나트륨'],
   };
 
   late TextEditingController _searchController;
@@ -129,8 +130,7 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
   }
 
   void _promptSaveGroup() {
-    TextEditingController groupNameController =
-        TextEditingController(text: '기피성분');
+    final TextEditingController groupNameController = TextEditingController();
 
     showDialog(
       context: context,
@@ -138,7 +138,10 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
         title: const Text('그룹 저장'),
         content: TextField(
           controller: groupNameController,
-          decoration: const InputDecoration(hintText: '그룹명 입력'),
+          decoration: const InputDecoration(
+            hintText: '그룹의 이름을 입력하세요',
+            hintStyle: TextStyle(color: Color(0xFF9AA3AF)),
+          ),
         ),
         actions: [
           TextButton(
@@ -256,252 +259,386 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
     double s(double value) => value * scale;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFEAF4EE),
+      backgroundColor: const Color(0xFFF7F8FB),
       body: SafeArea(
         child: Column(
           children: [
-            // 헤더
-            Padding(
-              padding: EdgeInsets.all(s(16)),
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.arrow_back),
-                    color: const Color(0xFF0F172A),
-                  ),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+            Expanded(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: EdgeInsets.fromLTRB(s(20), s(12), s(20), s(18)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       children: [
-                        Text(
-                          '기피 성분 설정',
-                          style: TextStyle(
-                            fontSize: s(22),
-                            fontWeight: FontWeight.w800,
-                            color: const Color(0xFF0F172A),
+                        IconButton(
+                          onPressed: () => Navigator.pop(context),
+                          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                          color: const Color(0xFF1E293B),
+                          splashRadius: 22,
+                        ),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '기피 성분 설정',
+                                style: TextStyle(
+                                  fontSize: s(22),
+                                  fontWeight: FontWeight.w800,
+                                  color: const Color(0xFF1E293B),
+                                  height: 1.1,
+                                ),
+                              ),
+                              SizedBox(height: s(4)),
+                              Text(
+                                '${_selectedIngredients.length}개 선택됨',
+                                style: TextStyle(
+                                  fontSize: s(12.5),
+                                  color: const Color(0xFF7C8798),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        Text(
-                          '${_selectedIngredients.length}개 선택됨',
-                          style: TextStyle(
-                            fontSize: s(14),
-                            color: const Color(0xFF5F6A78),
+                        SizedBox(
+                          height: s(40),
+                          child: ElevatedButton.icon(
+                            onPressed: _selectedIngredients.isEmpty
+                                ? null
+                                : _promptSaveGroup,
+                            icon: const Icon(Icons.add, size: 18),
+                            label: Text(
+                              '그룹 저장',
+                              style: TextStyle(fontSize: s(12)),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              elevation: 0,
+                              backgroundColor: const Color(0xFF0AA64E),
+                              foregroundColor: Colors.white,
+                              disabledBackgroundColor: const Color(0xFFE6E8EE),
+                              disabledForegroundColor: const Color(0xFF9CA3AF),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              padding: EdgeInsets.symmetric(horizontal: s(14)),
+                            ),
                           ),
                         ),
                       ],
                     ),
-                  ),
-                  SizedBox(
-                    height: s(40),
-                    child: ElevatedButton.icon(
-                      onPressed: _selectedIngredients.isEmpty
-                          ? null
-                          : _promptSaveGroup,
-                      icon: const Icon(Icons.add, size: 18),
-                      label: Text(
-                        '그룹 저장',
-                        style: TextStyle(fontSize: s(12)),
+                    SizedBox(height: s(14)),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(s(18)),
+                        border: Border.all(color: const Color(0xFFE5E7EB)),
                       ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF00A63E),
-                        disabledBackgroundColor: Colors.grey[300],
-                        padding: EdgeInsets.symmetric(horizontal: s(12)),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // 검색창
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: s(16), vertical: s(8)),
-              child: TextField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  hintText: '성분 검색...',
-                  prefixIcon: const Icon(Icons.search),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(s(12)),
-                  ),
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: s(16),
-                    vertical: s(12),
-                  ),
-                ),
-              ),
-            ),
-            // 저장된 그룹 섹션
-            if (_savedGroups.isNotEmpty)
-              Padding(
-                padding: EdgeInsets.all(s(16)),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '저장된 그룹',
-                      style: TextStyle(
-                        fontSize: s(14),
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF0F172A),
+                      child: TextField(
+                        controller: _searchController,
+                        decoration: InputDecoration(
+                          hintText: '성분 검색...',
+                          prefixIcon: const Icon(Icons.search_rounded),
+                          prefixIconColor: const Color(0xFF8A94A6),
+                          border: InputBorder.none,
+                          hintStyle: TextStyle(
+                            color: const Color(0xFF9AA3AF),
+                            fontSize: s(13),
+                          ),
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: s(16),
+                            vertical: s(14),
+                          ),
+                        ),
+                        style: TextStyle(
+                          fontSize: s(14),
+                          color: const Color(0xFF0F172A),
+                        ),
                       ),
                     ),
-                    SizedBox(height: s(8)),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: _savedGroups.map((group) {
-                          final isActive = _activeGroupName == group.groupName;
-                          return Padding(
-                            padding: EdgeInsets.only(right: s(8)),
-                            child: InkWell(
-                              onTap: () => _applyGroup(group),
-                              borderRadius: BorderRadius.circular(s(20)),
-                              child: Container(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: s(12),
-                                  vertical: s(8),
+                    if (_savedGroups.isNotEmpty) ...[
+                      SizedBox(height: s(18)),
+                      Container(
+                        width: double.infinity,
+                        padding: EdgeInsets.all(s(16)),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(s(18)),
+                          border: Border.all(color: const Color(0xFFE5E7EB)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.groups_rounded,
+                                  size: s(18),
+                                  color: const Color(0xFF7C8798),
                                 ),
-                                decoration: BoxDecoration(
-                                  color: isActive
-                                      ? const Color(0xFF00A63E)
-                                      : Colors.white,
-                                  borderRadius: BorderRadius.circular(s(20)),
-                                  border: Border.all(
-                                    color: const Color(0xFF00A63E),
+                                SizedBox(width: s(6)),
+                                Text(
+                                  '저장된 그룹',
+                                  style: TextStyle(
+                                    fontSize: s(13),
+                                    fontWeight: FontWeight.w700,
+                                    color: const Color(0xFF334155),
                                   ),
                                 ),
-                                child: Row(
-                                  children: [
-                                    Text(
-                                      group.groupName,
-                                      style: TextStyle(
-                                        fontSize: s(12),
-                                        color: isActive
-                                            ? Colors.white
-                                            : const Color(0xFF00A63E),
+                              ],
+                            ),
+                            SizedBox(height: s(12)),
+                            SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: _savedGroups.map((group) {
+                                  final isActive =
+                                      _activeGroupName == group.groupName;
+                                  return Padding(
+                                    padding: EdgeInsets.only(right: s(8)),
+                                    child: InkWell(
+                                      onTap: () => _applyGroup(group),
+                                      borderRadius:
+                                          BorderRadius.circular(s(999)),
+                                      child: AnimatedContainer(
+                                        duration:
+                                            const Duration(milliseconds: 180),
+                                        padding: EdgeInsets.symmetric(
+                                          horizontal: s(14),
+                                          vertical: s(10),
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: isActive
+                                              ? const Color(0xFFEAF8EF)
+                                              : const Color(0xFFF7F8FB),
+                                          borderRadius:
+                                              BorderRadius.circular(s(999)),
+                                          border: Border.all(
+                                            color: isActive
+                                                ? const Color(0xFF0AA64E)
+                                                : const Color(0xFFE5E7EB),
+                                          ),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              group.groupName,
+                                              style: TextStyle(
+                                                fontSize: s(12),
+                                                fontWeight: FontWeight.w600,
+                                                color: isActive
+                                                    ? const Color(0xFF0AA64E)
+                                                    : const Color(0xFF334155),
+                                              ),
+                                            ),
+                                            SizedBox(width: s(8)),
+                                            GestureDetector(
+                                              onTap: () =>
+                                                  _deleteGroup(group.groupName),
+                                              child: Icon(
+                                                Icons.close_rounded,
+                                                size: s(14),
+                                                color: isActive
+                                                    ? const Color(0xFF0AA64E)
+                                                    : const Color(0xFF94A3B8),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                     ),
-                                    SizedBox(width: s(8)),
-                                    GestureDetector(
-                                      onTap: () =>
-                                          _deleteGroup(group.groupName),
-                                      child: Icon(
-                                        Icons.close,
-                                        size: s(14),
-                                        color: isActive
-                                            ? Colors.white
-                                            : const Color(0xFF00A63E),
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                                  );
+                                }).toList(),
                               ),
                             ),
-                          );
-                        }).toList(),
+                          ],
+                        ),
                       ),
+                    ],
+                    SizedBox(height: s(18)),
+                    Container(
+                      width: double.infinity,
+                      padding: EdgeInsets.all(s(10)),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F3F7),
+                        borderRadius: BorderRadius.circular(s(999)),
+                      ),
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: ['전체', '알레르기', '비건', '임산부', '영유아']
+                              .map((category) {
+                            final isSelected = _selectedCategory == category;
+                            return Padding(
+                              padding: EdgeInsets.only(right: s(8)),
+                              child: ChoiceChip(
+                                label: Text(category),
+                                selected: isSelected,
+                                onSelected: (_) => _selectCategory(category),
+                                backgroundColor: Colors.white,
+                                selectedColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius:
+                                      BorderRadius.circular(s(999)),
+                                  side: BorderSide(
+                                    color: isSelected
+                                        ? const Color(0xFF0AA64E)
+                                        : Colors.transparent,
+                                  ),
+                                ),
+                                labelStyle: TextStyle(
+                                  color: isSelected
+                                      ? const Color(0xFF0AA64E)
+                                      : const Color(0xFF64748B),
+                                  fontSize: s(12.5),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                materialTapTargetSize:
+                                    MaterialTapTargetSize.shrinkWrap,
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: s(8),
+                                  vertical: s(6),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: s(14)),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(s(18)),
+                        border: Border.all(color: const Color(0xFFE5E7EB)),
+                      ),
+                      child: _isLoading
+                          ? SizedBox(
+                              height: s(340),
+                              child: const Center(
+                                child: CircularProgressIndicator(),
+                              ),
+                            )
+                          : _filteredIngredients.isEmpty
+                              ? SizedBox(
+                                  height: s(340),
+                                  child: Center(
+                                    child: Text(
+                                      '검색 결과가 없습니다.',
+                                      style: TextStyle(
+                                        fontSize: s(14),
+                                        color: const Color(0xFF7C8798),
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              : ListView.separated(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  padding: EdgeInsets.zero,
+                                  itemCount: _filteredIngredients.length,
+                                  separatorBuilder: (_, __) => Divider(
+                                    height: 1,
+                                    color: const Color(0xFFF1F5F9),
+                                  ),
+                                  itemBuilder: (context, index) {
+                                    final ingredient = _filteredIngredients[index];
+                                    final isSelected =
+                                        _selectedIngredients.contains(ingredient);
+
+                                    return Material(
+                                      color: Colors.transparent,
+                                      child: InkWell(
+                                        onTap: () => _toggleIngredient(ingredient),
+                                        child: Padding(
+                                          padding: EdgeInsets.symmetric(
+                                            horizontal: s(16),
+                                            vertical: s(14),
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  ingredient,
+                                                  style: TextStyle(
+                                                    fontSize: s(14),
+                                                    fontWeight: FontWeight.w600,
+                                                    color: const Color(0xFF111827),
+                                                  ),
+                                                ),
+                                              ),
+                                              Container(
+                                                width: s(22),
+                                                height: s(22),
+                                                decoration: BoxDecoration(
+                                                  color: isSelected
+                                                      ? const Color(0xFF0AA64E)
+                                                      : Colors.transparent,
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                          s(6)),
+                                                  border: Border.all(
+                                                    color: isSelected
+                                                        ? const Color(0xFF0AA64E)
+                                                        : const Color(0xFFD1D5DB),
+                                                    width: 1.4,
+                                                  ),
+                                                ),
+                                                child: isSelected
+                                                    ? Icon(
+                                                        Icons.check,
+                                                        size: s(14),
+                                                        color: Colors.white,
+                                                      )
+                                                    : null,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
                     ),
                   ],
                 ),
               ),
-            // 카테고리 탭
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: s(16), vertical: s(8)),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: ['전체', '알레르기', '비건', '임산부', '영유아']
-                      .map((category) {
-                    final isSelected = _selectedCategory == category;
-                    return Padding(
-                      padding: EdgeInsets.only(right: s(8)),
-                      child: ChoiceChip(
-                        label: Text(category),
-                        selected: isSelected,
-                        onSelected: (_) => _selectCategory(category),
-                        selectedColor: const Color(0xFF00A63E),
-                        labelStyle: TextStyle(
-                          color:
-                              isSelected ? Colors.white : Colors.black87,
-                          fontSize: s(13),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ),
             ),
-            // 성분 리스트
-            Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _filteredIngredients.isEmpty
-                      ? Center(
-                          child: Text(
-                            '검색 결과가 없습니다.',
-                            style: TextStyle(
-                              fontSize: s(14),
-                              color: const Color(0xFF5F6A78),
-                            ),
-                          ),
-                        )
-                      : ListView.separated(
-                          padding: EdgeInsets.symmetric(horizontal: s(16)),
-                          itemCount: _filteredIngredients.length,
-                          separatorBuilder: (_, __) =>
-                              const Divider(height: 1),
-                          itemBuilder: (context, index) {
-                            final ingredient = _filteredIngredients[index];
-                            final isSelected =
-                                _selectedIngredients.contains(ingredient);
-
-                            return CheckboxListTile(
-                              title: Text(
-                                ingredient,
-                                style: TextStyle(
-                                  fontSize: s(14),
-                                  fontWeight: isSelected
-                                      ? FontWeight.w600
-                                      : FontWeight.w500,
-                                ),
-                              ),
-                              value: isSelected,
-                              onChanged: (_) =>
-                                  _toggleIngredient(ingredient),
-                              activeColor: const Color(0xFF00A63E),
-                            );
-                          },
-                        ),
-            ),
-            // 저장 버튼
             Padding(
-              padding: EdgeInsets.all(s(16)),
+              padding: EdgeInsets.fromLTRB(s(20), 0, s(20), s(18)),
               child: SizedBox(
                 width: double.infinity,
-                height: s(50),
+                height: s(54),
                 child: ElevatedButton(
                   onPressed: _selectedIngredients.isEmpty || _isSaving
                       ? null
                       : _savePreferences,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF00A63E),
-                    disabledBackgroundColor: Colors.grey[300],
+                    elevation: 0,
+                    backgroundColor: const Color(0xFF0AA64E),
+                    disabledBackgroundColor: const Color(0xFFE5E7EB),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(s(18)),
+                    ),
                   ),
                   child: _isSaving
                       ? SizedBox(
                           height: s(20),
                           width: s(20),
                           child: const CircularProgressIndicator(
+                            strokeWidth: 2.4,
                             valueColor:
                                 AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
                         )
                       : Text(
-                          '저장',
+                          '설정 저장하기',
                           style: TextStyle(
                             fontSize: s(16),
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w700,
                             color: Colors.white,
                           ),
                         ),
