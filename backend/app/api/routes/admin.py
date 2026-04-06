@@ -13,8 +13,8 @@ router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 API_KEY = "fead84646d5e4b4cb8fe"
 FOOD_INGREDIENTS_COLLECTION = "food_ingredients"
-I1020_URL = "http://openapi.foodsafetykorea.go.kr/api/{keyId}/I1020/json/1/{endIdx}"
-I0950_URL = "http://openapi.foodsafetykorea.go.kr/api/{keyId}/I0950/json/1/{endIdx}"
+I1020_URL = "http://openapi.foodsafetykorea.go.kr/api/{keyId}/I1020/json/{startIdx}/{endIdx}"
+I0950_URL = "http://openapi.foodsafetykorea.go.kr/api/{keyId}/I0950/json/{startIdx}/{endIdx}"
 
 
 def _extract_field(row: dict, candidates: Iterable[str], default: str = "") -> str:
@@ -57,8 +57,17 @@ def _extract_rows(payload: dict, dataset_key: str) -> list[dict]:
     return []
 
 
-async def _fetch_api_rows(client: httpx.AsyncClient, url: str, key_id: str, end_idx: int, dataset_key: str) -> list[dict]:
-    response = await client.get(url.format(keyId=key_id, endIdx=end_idx))
+async def _fetch_api_rows(
+    client: httpx.AsyncClient,
+    url: str,
+    key_id: str,
+    start_idx: int,
+    end_idx: int,
+    dataset_key: str,
+) -> list[dict]:
+    response = await client.get(
+        url.format(keyId=key_id, startIdx=start_idx, endIdx=end_idx)
+    )
     response.raise_for_status()
 
     payload = response.json()
@@ -68,8 +77,10 @@ async def _fetch_api_rows(client: httpx.AsyncClient, url: str, key_id: str, end_
 
 
 @router.post("/sync-food-data")
-async def sync_food_data(end_idx: int = Query(default=100, ge=1, description="조회할 마지막 인덱스")):
-    logger.info("Food data sync started: end_idx=%d", end_idx)
+async def sync_food_data(
+    total_count: int = Query(default=5000, ge=1, description="총 수집 목표 건수"),
+):
+    logger.info("Food data sync started: total_count=%d", total_count)
 
     db_service = get_db_service()
     if not await db_service.check_connection():
@@ -78,6 +89,7 @@ async def sync_food_data(end_idx: int = Query(default=100, ge=1, description="�
 
     unique_documents: dict[tuple[str, str, str, str], dict] = {}
     name_extract_failed_total = 0
+    batch_size = 500
     timeout = httpx.Timeout(30.0)
 
     try:
@@ -88,79 +100,114 @@ async def sync_food_data(end_idx: int = Query(default=100, ge=1, description="�
             ]
 
             for source, url, dataset_candidates in api_jobs:
-                rows = []
                 name_extract_failed_by_source = 0
-                for dataset_key in dataset_candidates:
-                    try:
-                        rows = await _fetch_api_rows(client, url, API_KEY, end_idx, dataset_key)
-                        if rows:
-                            break
-                    except httpx.HTTPError:
-                        logger.exception("Failed to fetch food API rows: source=%s", source)
-                        raise HTTPException(status_code=502, detail=f"{source} 공공 API 호출에 실패했습니다.")
+                current_start = 1
+                while current_start <= total_count:
+                    current_end = min(current_start + batch_size - 1, total_count)
+                    rows: list[dict] = []
+                    for dataset_key in dataset_candidates:
+                        try:
+                            rows = await _fetch_api_rows(
+                                client,
+                                url,
+                                API_KEY,
+                                current_start,
+                                current_end,
+                                dataset_key,
+                            )
+                            if rows:
+                                break
+                        except httpx.HTTPError:
+                            logger.exception(
+                                "Failed to fetch food API rows: source=%s start=%d end=%d",
+                                source,
+                                current_start,
+                                current_end,
+                            )
+                            raise HTTPException(status_code=502, detail=f"{source} 공공 API 호출에 실패했습니다.")
 
-                for idx, sample_row in enumerate(rows[:3], start=1):
-                    logger.info("%s row sample #%d: %s", source, idx, sample_row)
-
-                if rows:
-                    logger.info("%s first row keys: %s", source, sorted(rows[0].keys()))
-
-                for row in rows:
-                    name = _extract_field(
-                        row,
-                        [
-                            "name",
-                            "NAME",
-                            "PC_KOR_NM",
-                            "NUTR_CONT1",
-                            "PRDLST_NM",
-                            "PRDLST_CD",
-                            "FOOD_NM",
-                            "ADDITIVE_NM",
-                            "ADDTV_CODE",
-                            "포함물명",
-                            "재료",
-                        ],
-                    )
-                    if not name:
-                        name_extract_failed_by_source += 1
-                        logger.warning("Name extraction failed for %s row: %s", source, row)
-
-                    ingredient_data = {
-                        "name": name or "",
-                        "eng_name": _extract_field(
-                            row,
-                            [
-                                "eng_name",
-                                "ENG_NAME",
-                                "PC_ENG_NM",
-                                "PRDLST_NM_ENG",
-                                "FOOD_NM_ENG",
-                                "ADDITIVE_NM_ENG",
-                            ],
-                        ),
-                        "classification": _extract_field(
-                            row,
-                            [
-                                "classification",
-                                "CLASSIFICATION",
-                                "SROCE",
-                                "FOOD_CTGRY",
-                                "PRDLST_CTGRY_NM",
-                                "CLASS_NM",
-                                "TYPE_NM",
-                            ],
-                        ),
-                        "source": source,
-                    }
-
-                    unique_key = (
-                        ingredient_data["name"].lower(),
+                    logger.info(
+                        "%s fetch range: start=%d end=%d row_count=%d",
                         source,
-                        ingredient_data["eng_name"].lower(),
-                        ingredient_data["classification"].lower(),
+                        current_start,
+                        current_end,
+                        len(rows),
                     )
-                    unique_documents[unique_key] = ingredient_data
+
+                    # 응답이 0개면 해당 소스 수집을 종료합니다.
+                    if not rows:
+                        logger.info(
+                            "%s returned 0 rows at range %d-%d; stopping pagination",
+                            source,
+                            current_start,
+                            current_end,
+                        )
+                        break
+
+                    for idx, sample_row in enumerate(rows[:3], start=1):
+                        logger.info("%s row sample #%d: %s", source, idx, sample_row)
+
+                    if rows:
+                        logger.info("%s first row keys: %s", source, sorted(rows[0].keys()))
+
+                    for row in rows:
+                        name = _extract_field(
+                            row,
+                            [
+                                "name",
+                                "NAME",
+                                "PC_KOR_NM",
+                                "NUTR_CONT1",
+                                "PRDLST_NM",
+                                "PRDLST_CD",
+                                "FOOD_NM",
+                                "ADDITIVE_NM",
+                                "ADDTV_CODE",
+                                "포함물명",
+                                "재료",
+                            ],
+                        )
+                        if not name:
+                            name_extract_failed_by_source += 1
+                            logger.warning("Name extraction failed for %s row: %s", source, row)
+
+                        ingredient_data = {
+                            "name": name or "",
+                            "eng_name": _extract_field(
+                                row,
+                                [
+                                    "eng_name",
+                                    "ENG_NAME",
+                                    "PC_ENG_NM",
+                                    "PRDLST_NM_ENG",
+                                    "FOOD_NM_ENG",
+                                    "ADDITIVE_NM_ENG",
+                                ],
+                            ),
+                            "classification": _extract_field(
+                                row,
+                                [
+                                    "classification",
+                                    "CLASSIFICATION",
+                                    "SROCE",
+                                    "FOOD_CTGRY",
+                                    "PRDLST_CTGRY_NM",
+                                    "CLASS_NM",
+                                    "TYPE_NM",
+                                ],
+                            ),
+                            "source": source,
+                        }
+
+                        unique_key = (
+                            ingredient_data["name"].lower(),
+                            source,
+                            ingredient_data["eng_name"].lower(),
+                            ingredient_data["classification"].lower(),
+                        )
+                        unique_documents[unique_key] = ingredient_data
+
+                    current_start = current_end + 1
 
                 name_extract_failed_total += name_extract_failed_by_source
                 logger.info("%s rows with empty name: %d", source, name_extract_failed_by_source)
