@@ -88,6 +88,7 @@ class ApiService {
 	Future<Map<String, dynamic>> savePreferences(
 		String userId,
 		List<String> avoidedIngredients,
+		[List<Map<String, dynamic>>? groups]
 	) async {
 		try {
 			final response = await _dio.post<Map<String, dynamic>>(
@@ -95,6 +96,7 @@ class ApiService {
 				data: {
 					'user_id': userId,
 					'avoided_ingredients': avoidedIngredients,
+					'groups': groups ?? <Map<String, dynamic>>[],
 				},
 			);
 

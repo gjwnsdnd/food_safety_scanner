@@ -88,18 +88,16 @@ async def save_preferences(payload: PreferencesRequest) -> PreferencesResponse:
 
     now = datetime.now(timezone.utc)
     normalized_ingredients = _normalize_items(payload.avoided_ingredients)
+    normalized_groups = _normalize_groups(payload.groups)
 
     try:
-        existing = await db_service.db["preferences"].find_one({"user_id": normalized_user_id}, {"groups": 1})
-        existing_groups = _normalize_groups(existing.get("groups") if existing else [])
-
         await db_service.db["preferences"].update_one(
             {"user_id": normalized_user_id},
             {
                 "$set": {
                     "user_id": normalized_user_id,
                     "avoided_ingredients": normalized_ingredients,
-                    "groups": [group.model_dump() for group in existing_groups],
+                    "groups": [group.model_dump() for group in normalized_groups],
                     "updated_at": now,
                 },
                 "$setOnInsert": {
@@ -114,7 +112,7 @@ async def save_preferences(payload: PreferencesRequest) -> PreferencesResponse:
     return PreferencesResponse(
         status="success",
         user_id=normalized_user_id,
-        groups=existing_groups,
+        groups=normalized_groups,
         avoided_ingredients=normalized_ingredients,
         message="기피 성분 설정이 저장되었습니다.",
     )

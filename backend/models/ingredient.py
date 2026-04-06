@@ -17,6 +17,7 @@ class PreferencesGroup(BaseModel):
 class PreferencesRequest(BaseModel):
     user_id: str = Field(..., min_length=1, description="사용자 식별자")
     avoided_ingredients: list[str] = Field(default_factory=list, description="기피 성분 목록")
+    groups: list[dict] = Field(default_factory=list, description="저장된 그룹 목록")
 
 
 class PreferencesResponse(BaseModel):

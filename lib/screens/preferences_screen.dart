@@ -72,6 +72,9 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
 
       if (mounted) {
         setState(() {
+          _selectedIngredients = Set<String>.from(
+            List<String>.from(data['avoided_ingredients'] ?? []),
+          );
           _savedGroups = (data['groups'] as List?)
               ?.map((g) => PreferencesGroup.fromJson(g as Map<String, dynamic>))
               .toList() ??
@@ -235,12 +238,25 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
   Future<void> _savePreferences() async {
     try {
       setState(() => _isSaving = true);
-      await _apiService.savePreferences(
+      final response = await _apiService.savePreferences(
         _userId,
         List.from(_selectedIngredients),
+        _savedGroups.map((g) => g.toJson()).toList(),
       );
 
-      setState(() => _isSaving = false);
+      if (mounted) {
+        setState(() {
+          _savedGroups = (response['groups'] as List?)
+                  ?.map((g) => PreferencesGroup.fromJson(g as Map<String, dynamic>))
+                  .toList() ??
+              _savedGroups;
+          _selectedIngredients = Set<String>.from(
+            List<String>.from(response['avoided_ingredients'] ?? _selectedIngredients.toList()),
+          );
+          _isSaving = false;
+        });
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('기피 성분이 저장되었습니다.')),
       );

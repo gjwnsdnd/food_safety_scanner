@@ -1,15 +1,52 @@
 import 'package:flutter/material.dart';
+import '../services/api_service.dart';
 import 'analysis_result_screen.dart';
 import 'history_screen.dart';
 import 'preferences_screen.dart';
 
-class MainScreen extends StatelessWidget {
+class MainScreen extends StatefulWidget {
   const MainScreen({Key? key}) : super(key: key);
+
+  @override
+  State<MainScreen> createState() => _MainScreenState();
+}
+
+class _MainScreenState extends State<MainScreen> {
+  final ApiService _apiService = ApiService();
+  final String _userId = 'default';
+  List<String> _selectedIngredients = [];
+  bool _isLoadingPreferences = true;
 
   static const Color _backgroundColor = Color(0xFFEAF4EE);
   static const Color _primaryGreen = Color(0xFF00A63E);
   static const Color _softGreen = Color(0xFFD8F2E1);
   static const Color _textMuted = Color(0xFF5F6A78);
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPreferences();
+  }
+
+  Future<void> _loadPreferences() async {
+    try {
+      final data = await _apiService.getPreferences(_userId);
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _selectedIngredients =
+            List<String>.from(data['avoided_ingredients'] ?? []);
+        _isLoadingPreferences = false;
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _isLoadingPreferences = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -59,7 +96,7 @@ class MainScreen extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(builder: (_) => const PreferencesScreen()),
-                      );
+                      ).then((_) => _loadPreferences());
                     },
                     icon: Icon(Icons.settings_outlined, size: s(22)),
                     color: const Color(0xFF2B3443),
@@ -172,6 +209,63 @@ class MainScreen extends StatelessWidget {
                 ),
               ),
               SizedBox(height: s(25)),
+              Container(
+                width: double.infinity,
+                padding: EdgeInsets.fromLTRB(s(18), s(16), s(18), s(16)),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(s(16)),
+                  border: Border.all(color: const Color(0xFFD6DCE3)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '기피 성분 설정 상태',
+                      style: TextStyle(
+                        fontSize: s(14),
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF0F172A),
+                      ),
+                    ),
+                    SizedBox(height: s(6)),
+                    Text(
+                      _isLoadingPreferences
+                          ? '불러오는 중...'
+                          : '현재 ${_selectedIngredients.length}개 성분 선택됨',
+                      style: TextStyle(
+                        fontSize: s(13),
+                        color: _textMuted,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    if (!_isLoadingPreferences && _selectedIngredients.isNotEmpty) ...[
+                      SizedBox(height: s(10)),
+                      Wrap(
+                        spacing: s(6),
+                        runSpacing: s(6),
+                        children: _selectedIngredients
+                            .map(
+                              (ingredient) => Chip(
+                                label: Text(
+                                  ingredient,
+                                  style: TextStyle(
+                                    fontSize: s(12),
+                                    color: const Color(0xFF0F172A),
+                                  ),
+                                ),
+                                backgroundColor: const Color(0xFFF2F5F8),
+                                side: const BorderSide(color: Color(0xFFDCE3EA)),
+                                visualDensity: VisualDensity.compact,
+                              ),
+                            )
+                            .toList(),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              SizedBox(height: s(16)),
               SizedBox(
                 width: double.infinity,
                 height: s(56),
@@ -182,7 +276,7 @@ class MainScreen extends StatelessWidget {
                       MaterialPageRoute(
                         builder: (_) => const PreferencesScreen(),
                       ),
-                    );
+                    ).then((_) => _loadPreferences());
                   },
                   style: OutlinedButton.styleFrom(
                     backgroundColor: Colors.white,
