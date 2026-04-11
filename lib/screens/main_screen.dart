@@ -58,7 +58,7 @@ class _MainScreenState extends State<MainScreen> {
       backgroundColor: _backgroundColor,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: EdgeInsets.symmetric(horizontal: s(22), vertical: s(26)),
+          padding: EdgeInsets.fromLTRB(s(22), s(26), s(22), s(18)),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -104,84 +104,37 @@ class _MainScreenState extends State<MainScreen> {
                   ),
                 ],
               ),
-              SizedBox(height: s(24)),
-              InkWell(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const HistoryScreen()),
-                  );
-                },
-                borderRadius: BorderRadius.circular(s(18)),
-                child: Container(
-                  width: double.infinity,
-                  padding: EdgeInsets.fromLTRB(s(20), s(20), s(20), s(20)),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(s(18)),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x16000000),
-                        blurRadius: 14,
-                        offset: Offset(0, 6),
+              SizedBox(height: s(48)),
+              SizedBox(
+                width: double.infinity,
+                height: s(56),
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const PreferencesScreen(),
                       ),
-                    ],
+                    ).then((_) => _loadPreferences());
+                  },
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: const Color(0xFF1B2234),
+                    side: BorderSide(color: const Color(0xFFD6DCE3), width: s(1.5)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(s(16)),
+                    ),
+                    textStyle: TextStyle(
+                      fontSize: s(16),
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.2,
+                    ),
                   ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '분석 기록 확인하기',
-                              style: TextStyle(
-                                fontSize: s(17),
-                                color: const Color(0xFF0F172A),
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            SizedBox(height: s(6)),
-                            Text(
-                              '총 분석 횟수',
-                              style: TextStyle(
-                                fontSize: s(11.5),
-                                color: _textMuted,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            SizedBox(height: s(4)),
-                            Text(
-                              '0회',
-                              style: TextStyle(
-                                fontSize: s(22),
-                                height: 1.0,
-                                color: Color(0xFF09162E),
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.5,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Container(
-                        width: s(54),
-                        height: s(54),
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: _softGreen,
-                        ),
-                        child: Icon(
-                          Icons.history,
-                          color: _primaryGreen,
-                          size: s(28),
-                        ),
-                      ),
-                    ],
-                  ),
+                  icon: Icon(Icons.settings_outlined, size: s(20)),
+                  label: const Text('1. 기피 성분 설정'),
                 ),
               ),
-              SizedBox(height: s(32)),
+              SizedBox(height: s(16)),
               SizedBox(
                 width: double.infinity,
                 height: s(56),
@@ -205,10 +158,10 @@ class _MainScreenState extends State<MainScreen> {
                     ),
                   ),
                   icon: Icon(Icons.crop_free, size: s(20)),
-                  label: const Text('성분표 분석하기'),
+                  label: const Text('2. 성분표 분석하기'),
                 ),
               ),
-              SizedBox(height: s(25)),
+              SizedBox(height: s(16)),
               Container(
                 width: double.infinity,
                 padding: EdgeInsets.fromLTRB(s(18), s(16), s(18), s(16)),
@@ -266,33 +219,80 @@ class _MainScreenState extends State<MainScreen> {
                 ),
               ),
               SizedBox(height: s(16)),
-              SizedBox(
-                width: double.infinity,
-                height: s(56),
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const PreferencesScreen(),
+              InkWell(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const HistoryScreen()),
+                  );
+                },
+                borderRadius: BorderRadius.circular(s(18)),
+                child: Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.fromLTRB(s(20), s(20), s(20), s(20)),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(s(18)),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x16000000),
+                        blurRadius: 14,
+                        offset: Offset(0, 6),
                       ),
-                    ).then((_) => _loadPreferences());
-                  },
-                  style: OutlinedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: const Color(0xFF1B2234),
-                    side: BorderSide(color: const Color(0xFFD6DCE3), width: s(1.5)),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(s(16)),
-                    ),
-                    textStyle: TextStyle(
-                      fontSize: s(16),
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.2,
-                    ),
+                    ],
                   ),
-                  icon: Icon(Icons.settings_outlined, size: s(20)),
-                  label: const Text('기피 성분 설정'),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '3. 분석 기록 확인하기',
+                              style: TextStyle(
+                                fontSize: s(17),
+                                color: const Color(0xFF0F172A),
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            SizedBox(height: s(6)),
+                            Text(
+                              '총 분석 횟수',
+                              style: TextStyle(
+                                fontSize: s(11.5),
+                                color: _textMuted,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            SizedBox(height: s(4)),
+                            Text(
+                              '0회',
+                              style: TextStyle(
+                                fontSize: s(22),
+                                height: 1.0,
+                                color: Color(0xFF09162E),
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        width: s(54),
+                        height: s(54),
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: _softGreen,
+                        ),
+                        child: Icon(
+                          Icons.history,
+                          color: _primaryGreen,
+                          size: s(28),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               SizedBox(height: s(32)),
@@ -327,7 +327,7 @@ class _MainScreenState extends State<MainScreen> {
                       ),
                     ),
                     Text(
-                      '2.  제품의 성분표를 촬영하거나 업로드하세요',
+                      '2.  성분표 분석하기를 눌러 성분표를 촬영하거나 업로드하세요.',
                       style: TextStyle(
                         fontSize: s(14),
                         fontWeight: FontWeight.w500,
@@ -336,7 +336,7 @@ class _MainScreenState extends State<MainScreen> {
                       ),
                     ),
                     Text(
-                      '3.  경고 성분을 확인하고 안전하게 선택하세요',
+                      '3.  지난 분석기록을 확인하세요.',
                       style: TextStyle(
                         fontSize: s(14),
                         fontWeight: FontWeight.w500,

@@ -1,9 +1,10 @@
 import logging
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 from pydantic import BaseModel, Field
 
 from backend.services.db_service import get_db_service
+from backend.services.ocr_service import extract_text_from_image
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +25,12 @@ class ScanSearchResponse(BaseModel):
     product_name: str = Field(..., description="검색어")
     ingredients: list[IngredientSearchResult] = Field(default_factory=list, description="검색된 성분 목록")
     count: int = Field(..., ge=0, description="검색 결과 수")
+
+
+class OcrOnlyResponse(BaseModel):
+    status: str = Field(default="success", description="응답 상태")
+    file_name: str = Field(default="", description="업로드 파일명")
+    extracted_text: str = Field(default="", description="OCR 추출 텍스트")
 
 
 async def _find_detail_by_name(db_service, ingredient_name: str) -> dict[str, str] | None:
@@ -92,3 +99,28 @@ async def scan_ingredients(product_name: str = Query(..., min_length=1, descript
     except Exception:
         logger.exception("Unexpected error during food ingredient search: product_name=%s", search_term)
         raise HTTPException(status_code=500, detail="성분 검색에 실패했습니다.")
+
+
+@router.post("/scan/ocr", response_model=OcrOnlyResponse)
+async def scan_ocr_only(file: UploadFile = File(...)) -> OcrOnlyResponse:
+    print(f"[OCR HIT] file={file.filename}, content_type={file.content_type}", flush=True)
+
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="이미지 파일만 업로드할 수 있습니다.")
+
+    try:
+        content = await file.read()
+        extracted_text = extract_text_from_image(content)
+        print(f"[OCR TEXT PREVIEW] {extracted_text[:200]}", flush=True)
+        logger.info("OCR extracted text (%s):\n%s", file.filename or "", extracted_text)
+
+        return OcrOnlyResponse(
+            status="success",
+            file_name=file.filename or "",
+            extracted_text=extracted_text,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("OCR failed: file_name=%s", file.filename)
+        raise HTTPException(status_code=500, detail=str(exc) or "OCR 처리 중 오류가 발생했습니다.")

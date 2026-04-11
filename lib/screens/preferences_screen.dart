@@ -280,6 +280,9 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
     final screenWidth = MediaQuery.sizeOf(context).width;
     final scale = (screenWidth / 390).clamp(0.88, 1.0);
     double s(double value) => value * scale;
+    final selectedIngredientList = _allIngredients
+        .where(_selectedIngredients.contains)
+        .toList();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FB),
@@ -381,6 +384,69 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
                         ),
                       ),
                     ),
+                    if (selectedIngredientList.isNotEmpty) ...[
+                      SizedBox(height: s(18)),
+                      Container(
+                        width: double.infinity,
+                        padding: EdgeInsets.all(s(16)),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(s(18)),
+                          border: Border.all(color: const Color(0xFFE5E7EB)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.checklist_rounded,
+                                  size: s(18),
+                                  color: const Color(0xFF7C8798),
+                                ),
+                                SizedBox(width: s(6)),
+                                Text(
+                                  '현재 선택 성분',
+                                  style: TextStyle(
+                                    fontSize: s(13),
+                                    fontWeight: FontWeight.w700,
+                                    color: const Color(0xFF334155),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: s(12)),
+                            Wrap(
+                              spacing: s(8),
+                              runSpacing: s(8),
+                              children: selectedIngredientList.map((ingredient) {
+                                return Container(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: s(12),
+                                    vertical: s(8),
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFEAF8EF),
+                                    borderRadius: BorderRadius.circular(s(999)),
+                                    border: Border.all(
+                                      color: const Color(0xFFC6F0D6),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    ingredient,
+                                    style: TextStyle(
+                                      fontSize: s(12),
+                                      fontWeight: FontWeight.w600,
+                                      color: const Color(0xFF0E7A3A),
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     if (_savedGroups.isNotEmpty) ...[
                       SizedBox(height: s(18)),
                       Container(

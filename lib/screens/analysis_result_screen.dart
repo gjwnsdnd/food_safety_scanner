@@ -3,7 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
-import 'analysis_summary_screen.dart';
+import '../services/api_service.dart';
 
 class AnalysisResultScreen extends StatefulWidget {
   const AnalysisResultScreen({Key? key}) : super(key: key);
@@ -14,8 +14,10 @@ class AnalysisResultScreen extends StatefulWidget {
 
 class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
   final ImagePicker _picker = ImagePicker();
+  final ApiService _apiService = ApiService();
   XFile? _selectedImage;
   Uint8List? _selectedImageBytes;
+  bool _isAnalyzing = false;
 
   Future<void> _pickFromGallery() async {
     try {
@@ -41,6 +43,36 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('갤러리에서 이미지를 불러오지 못했습니다.')),
       );
+    }
+  }
+
+  Future<void> _startAnalysis() async {
+    if (_selectedImage == null || _isAnalyzing) {
+      return;
+    }
+
+    setState(() => _isAnalyzing = true);
+
+    try {
+      await _apiService.scanImageWithOcr(_selectedImage!.path);
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('OCR 실행 완료. 결과는 백엔드 터미널에서 확인하세요.')),
+      );
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('OCR 실행 실패: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isAnalyzing = false);
+      }
     }
   }
 
@@ -199,7 +231,7 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
             SizedBox(
               height: 56,
               child: FilledButton.icon(
-                onPressed: () {},
+                onPressed: _isAnalyzing ? null : () {},
                 style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFF00A63E),
                   shape: RoundedRectangleBorder(
@@ -217,7 +249,7 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
             SizedBox(
               height: 56,
               child: OutlinedButton.icon(
-                onPressed: _pickFromGallery,
+                onPressed: _isAnalyzing ? null : _pickFromGallery,
                 style: OutlinedButton.styleFrom(
                   foregroundColor: const Color(0xFF111827),
                   side: const BorderSide(color: Color(0xFFD1D5DB), width: 1.5),
@@ -237,24 +269,26 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
               SizedBox(
                 height: 56,
                 child: FilledButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const AnalysisSummaryScreen(),
-                      ),
-                    );
-                  },
+                  onPressed: _isAnalyzing ? null : _startAnalysis,
                   style: FilledButton.styleFrom(
                     backgroundColor: const Color(0xFF2563EB),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
                   ),
-                  child: const Text(
-                    '분석 시작하기',
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
-                  ),
+                  child: _isAnalyzing
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 3,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : const Text(
+                          '분석 시작하기',
+                          style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+                        ),
                 ),
               ),
             ],

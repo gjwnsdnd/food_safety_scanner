@@ -1,4 +1,5 @@
 import logging
+import os
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
@@ -33,9 +34,13 @@ class Settings(BaseSettings):
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
 
 
-# 앱 시작 전에 .env를 명시적으로 로딩합니다.
+# 앱 시작 전에 backend/.env를 우선 로딩합니다.
+load_dotenv("backend/.env")
 load_dotenv()
 settings = Settings()
+
+if settings.google_application_credentials:
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = settings.google_application_credentials
 
 # 서비스 전반에서 공통으로 사용할 로깅 포맷입니다.
 logging.basicConfig(

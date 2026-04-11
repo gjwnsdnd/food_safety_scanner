@@ -5,7 +5,7 @@ class ApiService {
 			: _dio = dio ??
 						Dio(
 							BaseOptions(
-								baseUrl: 'http://10.0.2.2:8000',
+								baseUrl: 'http://10.0.2.2:8010',
 								connectTimeout: const Duration(seconds: 10),
 								receiveTimeout: const Duration(seconds: 20),
 								sendTimeout: const Duration(seconds: 20),
@@ -63,6 +63,40 @@ class ApiService {
 			}
 		} catch (e) {
 			throw Exception('성분 분석 요청 중 오류가 발생했습니다: $e');
+		}
+	}
+
+	Future<Map<String, dynamic>> scanImageWithOcr(String imagePath) async {
+		if (imagePath.trim().isEmpty) {
+			throw ArgumentError('imagePath cannot be empty');
+		}
+
+		try {
+			final fileName = imagePath.split(RegExp(r'[\\/]')).last;
+			final formData = FormData.fromMap({
+				'file': await MultipartFile.fromFile(imagePath, filename: fileName),
+			});
+
+			final response = await _dio.post<Map<String, dynamic>>(
+				'/api/scan/ocr',
+				data: formData,
+				options: Options(
+					headers: {
+						'Content-Type': 'multipart/form-data',
+					},
+				),
+			);
+
+			final data = response.data;
+			if (data == null) {
+				throw Exception('서버 응답이 비어 있습니다.');
+			}
+
+			return data;
+		} on DioException catch (e) {
+			_handleDioError(e);
+		} catch (e) {
+			throw Exception('OCR 요청 중 오류가 발생했습니다: $e');
 		}
 	}
 
