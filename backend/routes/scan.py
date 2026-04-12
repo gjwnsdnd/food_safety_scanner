@@ -4,7 +4,7 @@ from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 from pydantic import BaseModel, Field
 
 from backend.services.db_service import get_db_service
-from backend.services.ocr_service import extract_text_from_image
+from backend.services.ocr_service import extract_text_from_image, preprocess_image, search_ingredients
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +31,8 @@ class OcrOnlyResponse(BaseModel):
     status: str = Field(default="success", description="응답 상태")
     file_name: str = Field(default="", description="업로드 파일명")
     extracted_text: str = Field(default="", description="OCR 추출 텍스트")
+    ingredients: list[dict] = Field(default_factory=list, description="검색된 성분 목록")
+    ingredient_count: int = Field(default=0, ge=0, description="검색된 성분 개수")
 
 
 async def _find_detail_by_name(db_service, ingredient_name: str) -> dict[str, str] | None:
@@ -110,14 +112,27 @@ async def scan_ocr_only(file: UploadFile = File(...)) -> OcrOnlyResponse:
 
     try:
         content = await file.read()
+
+        preprocess_image(content)
+        logger.info("[OCR PREPROCESS] completed: file_name=%s", file.filename or "")
+
         extracted_text = extract_text_from_image(content)
         print(f"[OCR TEXT PREVIEW] {extracted_text[:200]}", flush=True)
         logger.info("OCR extracted text (%s):\n%s", file.filename or "", extracted_text)
+
+        ingredients = await search_ingredients(extracted_text)
+        logger.info(
+            "[OCR SEARCH] completed: file_name=%s, ingredient_count=%d",
+            file.filename or "",
+            len(ingredients),
+        )
 
         return OcrOnlyResponse(
             status="success",
             file_name=file.filename or "",
             extracted_text=extracted_text,
+            ingredients=ingredients,
+            ingredient_count=len(ingredients),
         )
     except HTTPException:
         raise
