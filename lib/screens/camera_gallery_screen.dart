@@ -26,7 +26,7 @@ class _CameraGalleryScreenState extends State<CameraGalleryScreen> {
 
   Future<XFile?> _cropImage(XFile image) async {
     try {
-      final croppedFile = await ImageCropper.platform.cropImage(
+      final croppedFile = await ImageCropper().cropImage(
         sourcePath: image.path,
         uiSettings: [
           AndroidUiSettings(
