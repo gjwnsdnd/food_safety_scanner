@@ -65,12 +65,26 @@ async def search_ingredients(extracted_text: str) -> list[dict]:
 			if len(normalized_token) >= 2:
 				candidates.append(normalized_token)
 
+	# 개선된 추출 로직: 연속된 한글 단어만 추출
+	korean_words = re.findall(r'[가-힣]{2,}', text)
+	for word in korean_words:
+		if word not in candidates:
+			candidates.append(word)
+
 	if not candidates:
 		logger.info("추출된 성분 후보 없음")
 		return []
 
 	# 디버깅: 추출된 단어들 로그 출력
 	logger.info(f"추출된 성분 후보 ({len(candidates)}개): {candidates}")
+	
+	# 디버깅: 추출된 한글 단어 확인
+	if korean_words:
+		logger.info(f"추출된 한글 단어 ({len(korean_words)}개): {korean_words}")
+		if "대두" in korean_words:
+			logger.info("✓ '대두'가 추출되었습니다!")
+	else:
+		logger.info("추출된 한글 단어 없음")
 
 	try:
 		cursor = db_service.db["ingredients"].find({})
