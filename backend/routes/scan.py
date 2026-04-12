@@ -120,19 +120,47 @@ async def scan_ocr_only(file: UploadFile = File(...)) -> OcrOnlyResponse:
         print(f"[OCR TEXT PREVIEW] {extracted_text[:200]}", flush=True)
         logger.info("OCR extracted text (%s):\n%s", file.filename or "", extracted_text)
 
+        # search_ingredients() 호출 및 에러 처리
         ingredients = await search_ingredients(extracted_text)
+        
+        # ingredients가 None인 경우 처리
+        if ingredients is None:
+            logger.warning("[OCR SEARCH] ingredients is None, treating as empty list")
+            ingredients = []
+        
+        # ingredients가 리스트인지 확인
+        if not isinstance(ingredients, list):
+            logger.error("[OCR SEARCH] ingredients is not a list, type=%s", type(ingredients))
+            ingredients = []
+        
+        # 빈 리스트인지 확인
+        if not ingredients:
+            logger.warning("[OCR SEARCH] no ingredients found")
+        
+        # 개선된 로그: len 안전 처리
+        ingredient_count = len(ingredients) if ingredients else 0
         logger.info(
             "[OCR SEARCH] completed: file_name=%s, ingredient_count=%d",
             file.filename or "",
-            len(ingredients),
+            ingredient_count,
         )
+        
+        # 반환된 각 성분의 name 필드 로그 출력 (대두 등의 포함 여부 확인)
+        if ingredients:
+            ingredient_names = [str(item.get("name", "")) for item in ingredients[:10]]  # 상위 10개만
+            logger.info("[OCR SEARCH] 디버깅: 반환된 성분 수 = %d", len(ingredients))
+            logger.info("[OCR SEARCH] 반환된 성분명 (상위 10개): %s", ingredient_names)
+            if ingredients:
+                logger.info("[OCR SEARCH] 첫 번째 성분명: %s", ingredients[0].get("name", ""))
+        else:
+            logger.info("[OCR SEARCH] 디버깅: 반환된 성분 수 = 0 (검색 결과 없음)")
 
         return OcrOnlyResponse(
             status="success",
             file_name=file.filename or "",
             extracted_text=extracted_text,
             ingredients=ingredients,
-            ingredient_count=len(ingredients),
+            ingredient_count=ingredient_count,
         )
     except HTTPException:
         raise
