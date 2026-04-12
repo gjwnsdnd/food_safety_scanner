@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import 'analysis_result_screen.dart';
 import '../services/api_service.dart';
 
 class CameraGalleryScreen extends StatefulWidget {
@@ -46,6 +47,33 @@ class _CameraGalleryScreenState extends State<CameraGalleryScreen> {
     }
   }
 
+  Future<void> _pickFromCamera() async {
+    try {
+      final image = await _picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 95,
+      );
+
+      if (image == null) {
+        return;
+      }
+
+      final bytes = await image.readAsBytes();
+
+      setState(() {
+        _selectedImage = image;
+        _selectedImageBytes = bytes;
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('카메라에서 이미지를 불러오지 못했습니다.')),
+      );
+    }
+  }
+
   Future<void> _startAnalysis() async {
     if (_selectedImage == null || _isAnalyzing) {
       return;
@@ -54,13 +82,26 @@ class _CameraGalleryScreenState extends State<CameraGalleryScreen> {
     setState(() => _isAnalyzing = true);
 
     try {
-      await _apiService.scanImageWithOcr(_selectedImage!.path);
+      final result = await _apiService.scanImageWithOcr(_selectedImage!.path);
       if (!mounted) {
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('OCR 실행 완료. 결과는 백엔드 터미널에서 확인하세요.')),
+      final ingredients = (result['ingredients'] as List?) ?? const [];
+      final extractedText = (result['extracted_text'] ?? '').toString();
+
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const AnalysisResultScreen(),
+          settings: RouteSettings(
+            arguments: {
+              'ingredients': ingredients,
+              'extracted_text': extractedText,
+              'file_name': _selectedImage?.name ?? '',
+            },
+          ),
+        ),
       );
     } catch (e) {
       if (!mounted) {
@@ -231,7 +272,7 @@ class _CameraGalleryScreenState extends State<CameraGalleryScreen> {
             SizedBox(
               height: 56,
               child: FilledButton.icon(
-                onPressed: _isAnalyzing ? null : () {},
+                onPressed: _isAnalyzing ? null : _pickFromCamera,
                 style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFF00A63E),
                   shape: RoundedRectangleBorder(
