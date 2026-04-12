@@ -38,7 +38,7 @@ class AnalysisResultScreen extends StatelessWidget {
         ),
       ),
       body: SingleChildScrollView(
-        child: Column(
+        child: Column( 
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
