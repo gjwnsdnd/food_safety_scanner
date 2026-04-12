@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
-import 'analysis_result_screen.dart';
+import 'camera_gallery_screen.dart';
 import 'history_screen.dart';
 import 'preferences_screen.dart';
 
@@ -142,7 +142,7 @@ class _MainScreenState extends State<MainScreen> {
                   onPressed: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const AnalysisResultScreen()),
+                      MaterialPageRoute(builder: (_) => const CameraGalleryScreen()),
                     );
                   },
                   style: FilledButton.styleFrom(

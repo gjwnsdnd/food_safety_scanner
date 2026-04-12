@@ -1,84 +1,15 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 
-import '../services/api_service.dart';
-
-class AnalysisResultScreen extends StatefulWidget {
+class AnalysisResultScreen extends StatelessWidget {
   const AnalysisResultScreen({Key? key}) : super(key: key);
 
-  @override
-  State<AnalysisResultScreen> createState() => _AnalysisResultScreenState();
-}
-
-class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
-  final ImagePicker _picker = ImagePicker();
-  final ApiService _apiService = ApiService();
-  XFile? _selectedImage;
-  Uint8List? _selectedImageBytes;
-  bool _isAnalyzing = false;
-
-  Future<void> _pickFromGallery() async {
-    try {
-      final image = await _picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 95,
-      );
-
-      if (image == null) {
-        return;
-      }
-
-      final bytes = await image.readAsBytes();
-
-      setState(() {
-        _selectedImage = image;
-        _selectedImageBytes = bytes;
-      });
-    } catch (_) {
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('갤러리에서 이미지를 불러오지 못했습니다.')),
-      );
-    }
-  }
-
-  Future<void> _startAnalysis() async {
-    if (_selectedImage == null || _isAnalyzing) {
-      return;
-    }
-
-    setState(() => _isAnalyzing = true);
-
-    try {
-      await _apiService.scanImageWithOcr(_selectedImage!.path);
-      if (!mounted) {
-        return;
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('OCR 실행 완료. 결과는 백엔드 터미널에서 확인하세요.')),
-      );
-    } catch (e) {
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('OCR 실행 실패: $e')),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _isAnalyzing = false);
-      }
-    }
+  String _formatDate(DateTime date) {
+    return '${date.year}. ${date.month}. ${date.day}.';
   }
 
   @override
   Widget build(BuildContext context) {
-    final hasSelectedImage = _selectedImage != null;
+    final now = DateTime.now();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FA),
@@ -91,207 +22,172 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         titleSpacing: 0,
-        title: const Column(
+        title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '성분표 분석',
+            const Text(
+              '분석 결과',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
             ),
-            SizedBox(height: 2),
+            const SizedBox(height: 2),
             Text(
-              '성분표를 촬영하거나 선택하세요',
-              style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+              _formatDate(now),
+              style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
             ),
           ],
         ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF3F4F6),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: const Color(0xFFCBD5E1),
-                  width: 1.5,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+              child: Container(
+                height: 50,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                alignment: Alignment.centerLeft,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFEFF1),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Text(
+                  '제품명을 입력하세요',
+                  style: TextStyle(color: Color(0xFF94A3B8), fontSize: 16),
                 ),
               ),
-              child: hasSelectedImage
-                  ? Stack(
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(16),
-                          child: AspectRatio(
-                            aspectRatio: 1,
-                            child: _selectedImageBytes == null
-                                ? Container(
-                                    color: const Color(0xFFE5E7EB),
-                                    alignment: Alignment.center,
-                                    child: const Text(
-                                      '이미지를 표시할 수 없습니다',
-                                      style: TextStyle(
-                                        color: Color(0xFF64748B),
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  )
-                                : Image.memory(
-                                    _selectedImageBytes!,
-                                    fit: BoxFit.cover,
-                                  ),
-                          ),
+            ),
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x12000000),
+                      blurRadius: 10,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE9F8EE),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: const Color(0xFFB8ECCA)),
+                      ),
+                      child: const Text(
+                        '• 경고 성분 없음',
+                        style: TextStyle(
+                          color: Color(0xFF159947),
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
                         ),
-                        Positioned(
-                          top: 8,
-                          right: 8,
-                          child: FilledButton.tonal(
-                            onPressed: _pickFromGallery,
-                            style: FilledButton.styleFrom(
-                              backgroundColor: const Color(0xDD0B1730),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    const Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '경고 성분',
+                                style: TextStyle(
+                                  color: Color(0xFF64748B),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
-                            ),
-                            child: const Text('다시 선택'),
+                              SizedBox(height: 6),
+                              Text(
+                                '0개',
+                                style: TextStyle(
+                                  color: Color(0xFFEF4444),
+                                  fontSize: 38,
+                                  fontWeight: FontWeight.w800,
+                                  height: 1.0,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ],
-                    )
-                  : const Column(
-                      children: [
-                        CircleAvatar(
-                          radius: 38,
-                          backgroundColor: Color(0xFFE5E7EB),
-                          child: Icon(
-                            Icons.photo_camera_outlined,
-                            size: 34,
-                            color: Color(0xFF9CA3AF),
-                          ),
+                        SizedBox(
+                          height: 72,
+                          child: VerticalDivider(color: Color(0xFFE5E7EB), thickness: 1),
                         ),
-                        SizedBox(height: 22),
-                        Text(
-                          '성분표를 촬영하세요',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFF0F172A),
-                          ),
-                        ),
-                        SizedBox(height: 10),
-                        Text(
-                          '제품 뒷면의 원재료명 또는 성분표를\n선명하게 촬영해 주세요',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 16,
-                            height: 1.45,
-                            color: Color(0xFF64748B),
+                        SizedBox(width: 20),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '전체 성분',
+                                style: TextStyle(
+                                  color: Color(0xFF64748B),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              SizedBox(height: 6),
+                              Text(
+                                '0개',
+                                style: TextStyle(
+                                  color: Color(0xFF0F172A),
+                                  fontSize: 38,
+                                  fontWeight: FontWeight.w800,
+                                  height: 1.0,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
-            ),
-            if (hasSelectedImage) ...[
-              const SizedBox(height: 10),
-              Text(
-                _selectedImage!.name,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Color(0xFF64748B),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
+                  ],
                 ),
               ),
-            ],
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-              decoration: BoxDecoration(
-                color: const Color(0xFFEBF3FF),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFD0E2FF)),
-              ),
-              child: const Text(
-                '촬영 가이드\n• 빛 반사가 없는 곳에서 촬영하세요\n• 성분표가 화면 가운데 오도록 정렬하세요\n• 초점이 맞고 흔들리지 않게 촬영하세요',
+            ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 22, 16, 10),
+              child: Text(
+                '전체 성분',
                 style: TextStyle(
-                  fontSize: 15,
-                  height: 1.6,
-                  color: Color(0xFF1D4ED8),
-                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF0F172A),
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
             ),
-            const SizedBox(height: 18),
-            SizedBox(
-              height: 56,
-              child: FilledButton.icon(
-                onPressed: _isAnalyzing ? null : () {},
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF00A63E),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: const Color(0xFFE5E7EB)),
                 ),
-                icon: const Icon(Icons.photo_camera, size: 20),
-                label: const Text(
-                  '카메라로 촬영하기',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+                child: const Text(
+                  '표시할 성분이 없습니다.',
+                  style: TextStyle(
+                    color: Color(0xFF94A3B8),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ),
-            const SizedBox(height: 12),
-            SizedBox(
-              height: 56,
-              child: OutlinedButton.icon(
-                onPressed: _isAnalyzing ? null : _pickFromGallery,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFF111827),
-                  side: const BorderSide(color: Color(0xFFD1D5DB), width: 1.5),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-                icon: const Icon(Icons.photo_library_outlined, size: 20),
-                label: const Text(
-                  '갤러리에서 선택하기',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
-                ),
-              ),
-            ),
-            if (hasSelectedImage) ...[
-              const SizedBox(height: 12),
-              SizedBox(
-                height: 56,
-                child: FilledButton(
-                  onPressed: _isAnalyzing ? null : _startAnalysis,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF2563EB),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  child: _isAnalyzing
-                      ? const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 3,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
-                      : const Text(
-                          '분석 시작하기',
-                          style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
-                        ),
-                ),
-              ),
-            ],
           ],
         ),
       ),
