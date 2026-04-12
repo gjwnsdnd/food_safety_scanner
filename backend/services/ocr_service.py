@@ -76,11 +76,13 @@ async def search_ingredients(extracted_text: str) -> list[dict]:
 		return []
 
 	# 디버깅: 추출된 단어들 로그 출력
+	logger.info(f"추출된 모든 단어: {candidates}")
 	logger.info(f"추출된 성분 후보 ({len(candidates)}개): {candidates}")
 	
 	# 디버깅: 추출된 한글 단어 확인
 	if korean_words:
 		logger.info(f"추출된 한글 단어 ({len(korean_words)}개): {korean_words}")
+		logger.info("새우 포함 여부: %s", "새우" in korean_words or any("새우" in candidate for candidate in candidates))
 		if "대두" in korean_words:
 			logger.info("✓ '대두'가 추출되었습니다!")
 	else:
@@ -108,9 +110,9 @@ async def search_ingredients(extracted_text: str) -> list[dict]:
 		if normalized_name in seen_names:
 			continue
 
-		# 50% 이상의 유사도로 기준 낮춤 (원래 70%)
+		# 70% 이상의 유사도만 통과시킨다.
 		best_score = max(fuzz.token_set_ratio(name, candidate) for candidate in candidates)
-		if best_score < 50:
+		if best_score < 70:
 			continue
 
 		seen_names.add(normalized_name)
@@ -125,12 +127,14 @@ async def search_ingredients(extracted_text: str) -> list[dict]:
 
 	scored_matches.sort(key=lambda item: item[0], reverse=True)
 	result = [item[1] for item in scored_matches]
+	logger.info("[OCR SEARCH] 매칭된 성분명 목록: %s", [item.get("name", "") for item in result])
 	
 	# 디버깅: 최종 반환 결과 로그
 	logger.info(f"최종 반환 성분 수: {len(result)}")
 	if result:
 		returned_names = [str(item.get("name", "")) for item in result[:5]]  # 처음 5개만 로그
 		logger.info(f"반환된 성분 (상위 5개): {returned_names}")
+		logger.info("[OCR SEARCH] 새우 최종 포함 여부: %s", any(item.get("name") == "새우" for item in result))
 	
 	return result
 
