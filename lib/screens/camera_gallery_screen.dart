@@ -1,8 +1,6 @@
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:logger/logger.dart';
 
@@ -24,52 +22,7 @@ class _CameraGalleryScreenState extends State<CameraGalleryScreen> {
   Uint8List? _selectedImageBytes;
   bool _isAnalyzing = false;
 
-  Future<XFile?> _cropImage(XFile image) async {
-    try {
-      final croppedFile = await ImageCropper().cropImage(
-        sourcePath: image.path,
-        uiSettings: [
-          AndroidUiSettings(
-            toolbarTitle: '이미지 자르기',
-            toolbarColor: const Color(0xFF0F172A),
-            toolbarWidgetColor: Colors.white,
-            activeControlsWidgetColor: const Color(0xFF2563EB),
-            lockAspectRatio: false,
-          ),
-          IOSUiSettings(
-            title: '이미지 자르기',
-            aspectRatioLockEnabled: false,
-            resetAspectRatioEnabled: true,
-          ),
-        ],
-      );
-
-      if (croppedFile == null) {
-        logger.d('이미지 자르기가 취소되었습니다.');
-        return null;
-      }
-
-      final croppedPath = croppedFile.path;
-      if (croppedPath.isEmpty) {
-        logger.d('크롭된 파일 경로가 비어 있습니다.');
-        return null;
-      }
-
-      final croppedFileObject = File(croppedPath);
-      if (!croppedFileObject.existsSync()) {
-        logger.d('크롭된 파일이 존재하지 않습니다: $croppedPath');
-        return null;
-      }
-
-      logger.d('크롭 완료: $croppedPath');
-      return XFile(croppedFileObject.path);
-    } catch (e) {
-      logger.d('이미지 크롭 에러: $e');
-      rethrow;
-    }
-  }
-
-  Future<void> _selectCropAndAnalyze(ImageSource source) async {
+  Future<void> _selectAndAnalyze(ImageSource source) async {
     try {
       final image = await _picker.pickImage(
         source: source,
@@ -82,21 +35,14 @@ class _CameraGalleryScreenState extends State<CameraGalleryScreen> {
       }
 
       logger.d('갤러리 선택 성공: ${image.path}');
-
-      final croppedImage = await _cropImage(image);
-      if (croppedImage == null) {
-        logger.d('크롭 결과가 null 입니다.');
-        return;
-      }
-
-      final bytes = await croppedImage.readAsBytes();
+      final bytes = await image.readAsBytes();
 
       if (!mounted) {
         return;
       }
 
       setState(() {
-        _selectedImage = croppedImage;
+        _selectedImage = image;
         _selectedImageBytes = bytes;
       });
 
@@ -116,11 +62,11 @@ class _CameraGalleryScreenState extends State<CameraGalleryScreen> {
   }
 
   Future<void> _pickFromGallery() async {
-    await _selectCropAndAnalyze(ImageSource.gallery);
+    await _selectAndAnalyze(ImageSource.gallery);
   }
 
   Future<void> _pickFromCamera() async {
-    await _selectCropAndAnalyze(ImageSource.camera);
+    await _selectAndAnalyze(ImageSource.camera);
   }
 
   Future<void> _startAnalysis() async {
