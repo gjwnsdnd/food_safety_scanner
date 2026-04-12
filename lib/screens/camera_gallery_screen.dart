@@ -1,8 +1,10 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:logger/logger.dart';
 
 import 'analysis_result_screen.dart';
 import '../services/api_service.dart';
@@ -15,6 +17,7 @@ class CameraGalleryScreen extends StatefulWidget {
 }
 
 class _CameraGalleryScreenState extends State<CameraGalleryScreen> {
+  final Logger logger = Logger();
   final ImagePicker _picker = ImagePicker();
   final ApiService _apiService = ApiService();
   XFile? _selectedImage;
@@ -22,29 +25,48 @@ class _CameraGalleryScreenState extends State<CameraGalleryScreen> {
   bool _isAnalyzing = false;
 
   Future<XFile?> _cropImage(XFile image) async {
-    final croppedFile = await ImageCropper().cropImage(
-      sourcePath: image.path,
-      uiSettings: [
-        AndroidUiSettings(
-          toolbarTitle: '이미지 자르기',
-          toolbarColor: const Color(0xFF0F172A),
-          toolbarWidgetColor: Colors.white,
-          activeControlsWidgetColor: const Color(0xFF2563EB),
-          lockAspectRatio: false,
-        ),
-        IOSUiSettings(
-          title: '이미지 자르기',
-          aspectRatioLockEnabled: false,
-          resetAspectRatioEnabled: true,
-        ),
-      ],
-    );
+    try {
+      final croppedFile = await ImageCropper.platform.cropImage(
+        sourcePath: image.path,
+        uiSettings: [
+          AndroidUiSettings(
+            toolbarTitle: '이미지 자르기',
+            toolbarColor: const Color(0xFF0F172A),
+            toolbarWidgetColor: Colors.white,
+            activeControlsWidgetColor: const Color(0xFF2563EB),
+            lockAspectRatio: false,
+          ),
+          IOSUiSettings(
+            title: '이미지 자르기',
+            aspectRatioLockEnabled: false,
+            resetAspectRatioEnabled: true,
+          ),
+        ],
+      );
 
-    if (croppedFile == null) {
-      return null;
+      if (croppedFile == null) {
+        logger.info('이미지 자르기가 취소되었습니다.');
+        return null;
+      }
+
+      final croppedPath = croppedFile.path;
+      if (croppedPath.isEmpty) {
+        logger.info('크롭된 파일 경로가 비어 있습니다.');
+        return null;
+      }
+
+      final croppedFileObject = File(croppedPath);
+      if (!croppedFileObject.existsSync()) {
+        logger.info('크롭된 파일이 존재하지 않습니다: $croppedPath');
+        return null;
+      }
+
+      logger.info('크롭 완료: $croppedPath');
+      return XFile(croppedFileObject.path);
+    } catch (e) {
+      logger.info('이미지 크롭 에러: $e');
+      rethrow;
     }
-
-    return XFile(croppedFile.path);
   }
 
   Future<void> _selectCropAndAnalyze(ImageSource source) async {
@@ -55,11 +77,15 @@ class _CameraGalleryScreenState extends State<CameraGalleryScreen> {
       );
 
       if (image == null) {
+        logger.info('갤러리 선택이 취소되었습니다.');
         return;
       }
 
+      logger.info('갤러리 선택 성공: ${image.path}');
+
       final croppedImage = await _cropImage(image);
       if (croppedImage == null) {
+        logger.info('크롭 결과가 null 입니다.');
         return;
       }
 
@@ -75,7 +101,8 @@ class _CameraGalleryScreenState extends State<CameraGalleryScreen> {
       });
 
       await _startAnalysis();
-    } catch (_) {
+    } catch (e) {
+      logger.info('갤러리 선택 에러: $e');
       if (!mounted) {
         return;
       }

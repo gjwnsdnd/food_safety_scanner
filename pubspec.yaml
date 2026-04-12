@@ -28,8 +28,11 @@ dependencies:
   intl: ^0.19.0
 
   # ===== 이미지 선택 (라벨 촬영/갤러리) =====
-  image_picker: ^1.0.0
+  image_picker: ^1.1.2
   image_cropper: ^8.0.2
+
+  # ===== 로그 =====
+  logger: ^2.5.0
 
   # ===== JSON 직렬화 =====
   json_serializable: ^6.7.1
