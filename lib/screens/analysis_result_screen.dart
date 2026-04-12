@@ -132,9 +132,16 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
 
   void _showIngredientDetailModal(Map<String, dynamic> ingredient) {
     final name = _koreanOnlyName(_ingredientName(ingredient));
-    final usage = (ingredient['caution'] ?? '').toString().trim();
     final description = (ingredient['description'] ?? '').toString().trim();
-    final cautionBanner = usage.isNotEmpty ? usage : '주의사항 정보가 없습니다.';
+    var uses = (ingredient['uses'] ?? '').toString().trim();
+    final caution = (ingredient['caution'] ?? '').toString().trim();
+    
+    // "다른 음식들" 섹션에 " 등" 추가 (이미 존재하면 중복 방지)
+    if (uses.isNotEmpty && !uses.endsWith('등')) {
+      uses = '$uses 등';
+    }
+    
+    final cautionBanner = caution.isNotEmpty ? caution : '주의사항 정보가 없습니다.';
 
     showModalBottomSheet<void>(
       context: context,
@@ -174,37 +181,7 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF3F4F6),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          '용도',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF111827),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          usage.isNotEmpty ? usage : '등록된 용도 정보가 없습니다.',
-                          style: const TextStyle(
-                            fontSize: 15,
-                            height: 1.45,
-                            color: Color(0xFF334155),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
+                  // 특징
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
@@ -236,6 +213,71 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
+                  // 다른 음식들
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF3F4F6),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          '다른 음식들',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF111827),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          uses.isNotEmpty ? uses : '등록된 음식 정보가 없습니다.',
+                          style: const TextStyle(
+                            fontSize: 15,
+                            height: 1.45,
+                            color: Color(0xFF334155),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // 주의사항
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF3F4F6),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          '주의사항',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF111827),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          caution.isNotEmpty ? caution : '등록된 주의사항이 없습니다.',
+                          style: const TextStyle(
+                            fontSize: 15,
+                            height: 1.45,
+                            color: Color(0xFF334155),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // 주의사항 배너 (노란색)
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),

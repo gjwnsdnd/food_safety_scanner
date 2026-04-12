@@ -66,7 +66,11 @@ async def search_ingredients(extracted_text: str) -> list[dict]:
 				candidates.append(normalized_token)
 
 	if not candidates:
+		logger.info("추출된 성분 후보 없음")
 		return []
+
+	# 디버깅: 추출된 단어들 로그 출력
+	logger.info(f"추출된 성분 후보 ({len(candidates)}개): {candidates}")
 
 	try:
 		cursor = db_service.db["ingredients"].find({})
@@ -75,8 +79,11 @@ async def search_ingredients(extracted_text: str) -> list[dict]:
 		logger.exception("Failed to load ingredients for OCR search")
 		return []
 
+	logger.info(f"데이터베이스에서 {len(documents)}개의 성분 로드됨")
+
 	scored_matches: list[tuple[int, dict]] = []
 	seen_names: set[str] = set()
+	matched_details: list[str] = []
 
 	for document in documents:
 		name = str(document.get("name", "")).strip()
@@ -87,8 +94,9 @@ async def search_ingredients(extracted_text: str) -> list[dict]:
 		if normalized_name in seen_names:
 			continue
 
+		# 50% 이상의 유사도로 기준 낮춤 (원래 70%)
 		best_score = max(fuzz.token_set_ratio(name, candidate) for candidate in candidates)
-		if best_score < 70:
+		if best_score < 50:
 			continue
 
 		seen_names.add(normalized_name)
@@ -96,9 +104,21 @@ async def search_ingredients(extracted_text: str) -> list[dict]:
 		if "_id" in serialized_document:
 			serialized_document["_id"] = str(serialized_document["_id"])
 		scored_matches.append((best_score, serialized_document))
+		matched_details.append(f"{name} (점수: {best_score}%)")
+
+	# 디버깅: 매칭된 성분들 로그 출력
+	logger.info(f"매칭된 성분 ({len(matched_details)}개): {matched_details}")
 
 	scored_matches.sort(key=lambda item: item[0], reverse=True)
-	return [item[1] for item in scored_matches]
+	result = [item[1] for item in scored_matches]
+	
+	# 디버깅: 최종 반환 결과 로그
+	logger.info(f"최종 반환 성분 수: {len(result)}")
+	if result:
+		returned_names = [str(item.get("name", "")) for item in result[:5]]  # 처음 5개만 로그
+		logger.info(f"반환된 성분 (상위 5개): {returned_names}")
+	
+	return result
 
 
 def extract_text_from_image(image_bytes: bytes) -> str:
