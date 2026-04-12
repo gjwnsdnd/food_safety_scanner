@@ -65,11 +65,12 @@ async def search_ingredients(extracted_text: str) -> list[dict]:
 			if len(normalized_token) >= 2:
 				candidates.append(normalized_token)
 
-	# 개선된 추출 로직: 연속된 한글 단어만 추출
-	korean_words = re.findall(r'[가-힣]{2,}', text)
-	for word in korean_words:
-		if word not in candidates:
-			candidates.append(word)
+	# 새로운 방식: 연속된 한글 단어(2글자 이상) 추출 후 기존 후보와 합친다.
+	korean_words = re.findall(r"[가-힣]{2,}", text)
+	candidates.extend(korean_words)
+
+	# 중복 제거
+	candidates = list(set(candidates))
 
 	if not candidates:
 		logger.info("추출된 성분 후보 없음")
@@ -77,16 +78,8 @@ async def search_ingredients(extracted_text: str) -> list[dict]:
 
 	# 디버깅: 추출된 단어들 로그 출력
 	logger.info(f"추출된 모든 단어: {candidates}")
-	logger.info(f"추출된 성분 후보 ({len(candidates)}개): {candidates}")
-	
-	# 디버깅: 추출된 한글 단어 확인
-	if korean_words:
-		logger.info(f"추출된 한글 단어 ({len(korean_words)}개): {korean_words}")
-		logger.info("새우 포함 여부: %s", "새우" in korean_words or any("새우" in candidate for candidate in candidates))
-		if "대두" in korean_words:
-			logger.info("✓ '대두'가 추출되었습니다!")
-	else:
-		logger.info("추출된 한글 단어 없음")
+	logger.info(f"추출된 한글 단어 ({len(korean_words)}개): {korean_words}")
+	logger.info("[OCR SEARCH] 과라나 후보 포함 여부: %s", "과라나" in candidates)
 
 	try:
 		cursor = db_service.db["ingredients"].find({})
@@ -112,7 +105,12 @@ async def search_ingredients(extracted_text: str) -> list[dict]:
 
 		score_pairs = [(candidate, fuzz.token_set_ratio(name, candidate)) for candidate in candidates]
 		best_candidate, best_score = max(score_pairs, key=lambda item: item[1])
-		logger.info("[OCR SEARCH] 성분=%s 최고점수=%d 후보=%s", name, best_score, best_candidate)
+		logger.info(
+			"[OCR SEARCH] 유사도 점수: db=%s, 후보=%s, score=%d",
+			name,
+			best_candidate,
+			best_score,
+		)
 		if best_score < 50:
 			continue
 
@@ -136,7 +134,7 @@ async def search_ingredients(extracted_text: str) -> list[dict]:
 	if result:
 		returned_names = [str(item.get("name", "")) for item in result[:5]]  # 처음 5개만 로그
 		logger.info(f"반환된 성분 (상위 5개): {returned_names}")
-		logger.info("[OCR SEARCH] 새우 최종 포함 여부: %s", any(item.get("name") == "새우" for item in result))
+		logger.info("[OCR SEARCH] 과라나 최종 포함 여부: %s", any("과라나" in str(item.get("name", "")) for item in result))
 	
 	return result
 
