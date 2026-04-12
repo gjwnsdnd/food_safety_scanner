@@ -47,42 +47,58 @@ async def search_ingredients(extracted_text: str) -> list[dict]:
 	if db_service.db is None:
 		return []
 
-	words = [part.strip() for part in re.split(r"[\n,·/|()\[\]{}<>:;\s]+", text) if part.strip()]
-	if not words:
-		words = [text]
+	# OCR 텍스트를 쉼표/개행/중점 등으로 분리한 뒤 정규표현식으로 성분명 후보를 추출한다.
+	raw_chunks = [
+		chunk.strip()
+		for chunk in re.split(r"[,\n\r·•;:/|]+", text)
+		if chunk and chunk.strip()
+	]
+
+	candidates: list[str] = []
+	for chunk in raw_chunks:
+		normalized_chunk = re.sub(r"\s+", " ", chunk).strip()
+		if normalized_chunk:
+			candidates.append(normalized_chunk)
+
+		for token in re.findall(r"[가-힣A-Za-z][가-힣A-Za-z0-9()\-\s]{0,80}", chunk):
+			normalized_token = re.sub(r"\s+", " ", token).strip()
+			if len(normalized_token) >= 2:
+				candidates.append(normalized_token)
+
+	if not candidates:
+		return []
 
 	try:
-		cursor = db_service.db["food_ingredients"].find({}, {"_id": 0})
+		cursor = db_service.db["ingredients"].find({})
 		documents = await cursor.to_list(length=5000)
 	except Exception:
 		logger.exception("Failed to load ingredients for OCR search")
 		return []
 
-	matches: list[dict] = []
+	scored_matches: list[tuple[int, dict]] = []
 	seen_names: set[str] = set()
 
 	for document in documents:
 		name = str(document.get("name", "")).strip()
-		if not name or name in seen_names:
+		if not name:
 			continue
 
-		score = max(fuzz.token_set_ratio(name, word) for word in words)
-		if score < 70:
+		normalized_name = re.sub(r"\s+", "", name).lower()
+		if normalized_name in seen_names:
 			continue
 
-		seen_names.add(name)
-		matches.append(
-			{
-				"name": name,
-				"eng_name": str(document.get("eng_name", "")),
-				"classification": str(document.get("classification", "")),
-				"source": str(document.get("source", "")),
-				"score": score,
-			}
-		)
+		best_score = max(fuzz.token_set_ratio(name, candidate) for candidate in candidates)
+		if best_score < 70:
+			continue
 
-	matches.sort(key=lambda item: item["score"], reverse=True)
-	return matches
+		seen_names.add(normalized_name)
+		serialized_document = dict(document)
+		if "_id" in serialized_document:
+			serialized_document["_id"] = str(serialized_document["_id"])
+		scored_matches.append((best_score, serialized_document))
+
+	scored_matches.sort(key=lambda item: item[0], reverse=True)
+	return [item[1] for item in scored_matches]
 
 
 def extract_text_from_image(image_bytes: bytes) -> str:
