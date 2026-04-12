@@ -15,7 +15,7 @@ from backend.routes.scan import router as scan_router
 from backend.app.api.routes.admin import router as admin_router
 from backend.services.db_service import get_db_service, init_db_service
 
-
+ 
 class Settings(BaseSettings):
     # .env 기반 애플리케이션 설정입니다.
     app_name: str = "Food Safety Scanner API"
