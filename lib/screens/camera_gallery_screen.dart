@@ -45,26 +45,26 @@ class _CameraGalleryScreenState extends State<CameraGalleryScreen> {
       );
 
       if (croppedFile == null) {
-        logger.info('이미지 자르기가 취소되었습니다.');
+        logger.d('이미지 자르기가 취소되었습니다.');
         return null;
       }
 
       final croppedPath = croppedFile.path;
       if (croppedPath.isEmpty) {
-        logger.info('크롭된 파일 경로가 비어 있습니다.');
+        logger.d('크롭된 파일 경로가 비어 있습니다.');
         return null;
       }
 
       final croppedFileObject = File(croppedPath);
       if (!croppedFileObject.existsSync()) {
-        logger.info('크롭된 파일이 존재하지 않습니다: $croppedPath');
+        logger.d('크롭된 파일이 존재하지 않습니다: $croppedPath');
         return null;
       }
 
-      logger.info('크롭 완료: $croppedPath');
+      logger.d('크롭 완료: $croppedPath');
       return XFile(croppedFileObject.path);
     } catch (e) {
-      logger.info('이미지 크롭 에러: $e');
+      logger.d('이미지 크롭 에러: $e');
       rethrow;
     }
   }
@@ -77,15 +77,15 @@ class _CameraGalleryScreenState extends State<CameraGalleryScreen> {
       );
 
       if (image == null) {
-        logger.info('갤러리 선택이 취소되었습니다.');
+        logger.d('갤러리 선택이 취소되었습니다.');
         return;
       }
 
-      logger.info('갤러리 선택 성공: ${image.path}');
+      logger.d('갤러리 선택 성공: ${image.path}');
 
       final croppedImage = await _cropImage(image);
       if (croppedImage == null) {
-        logger.info('크롭 결과가 null 입니다.');
+        logger.d('크롭 결과가 null 입니다.');
         return;
       }
 
@@ -102,7 +102,7 @@ class _CameraGalleryScreenState extends State<CameraGalleryScreen> {
 
       await _startAnalysis();
     } catch (e) {
-      logger.info('갤러리 선택 에러: $e');
+      logger.d('갤러리 선택 에러: $e');
       if (!mounted) {
         return;
       }
