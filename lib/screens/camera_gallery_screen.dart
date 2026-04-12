@@ -30,7 +30,6 @@ class _CameraGalleryScreenState extends State<CameraGalleryScreen> {
           toolbarColor: const Color(0xFF0F172A),
           toolbarWidgetColor: Colors.white,
           activeControlsWidgetColor: const Color(0xFF2563EB),
-          initAspectRatio: CropAspectRatioPreset.free,
           lockAspectRatio: false,
         ),
         IOSUiSettings(
