@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'analysis_result_screen.dart';
@@ -20,10 +21,37 @@ class _CameraGalleryScreenState extends State<CameraGalleryScreen> {
   Uint8List? _selectedImageBytes;
   bool _isAnalyzing = false;
 
-  Future<void> _pickFromGallery() async {
+  Future<XFile?> _cropImage(XFile image) async {
+    final croppedFile = await ImageCropper().cropImage(
+      sourcePath: image.path,
+      uiSettings: [
+        AndroidUiSettings(
+          toolbarTitle: '이미지 자르기',
+          toolbarColor: const Color(0xFF0F172A),
+          toolbarWidgetColor: Colors.white,
+          activeControlsWidgetColor: const Color(0xFF2563EB),
+          initAspectRatio: CropAspectRatioPreset.free,
+          lockAspectRatio: false,
+        ),
+        IOSUiSettings(
+          title: '이미지 자르기',
+          aspectRatioLockEnabled: false,
+          resetAspectRatioEnabled: true,
+        ),
+      ],
+    );
+
+    if (croppedFile == null) {
+      return null;
+    }
+
+    return XFile(croppedFile.path);
+  }
+
+  Future<void> _selectCropAndAnalyze(ImageSource source) async {
     try {
       final image = await _picker.pickImage(
-        source: ImageSource.gallery,
+        source: source,
         imageQuality: 95,
       );
 
@@ -31,47 +59,42 @@ class _CameraGalleryScreenState extends State<CameraGalleryScreen> {
         return;
       }
 
-      final bytes = await image.readAsBytes();
+      final croppedImage = await _cropImage(image);
+      if (croppedImage == null) {
+        return;
+      }
+
+      final bytes = await croppedImage.readAsBytes();
+
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
-        _selectedImage = image;
+        _selectedImage = croppedImage;
         _selectedImageBytes = bytes;
       });
+
+      await _startAnalysis();
     } catch (_) {
       if (!mounted) {
         return;
       }
+      final message = source == ImageSource.camera
+          ? '카메라에서 이미지를 불러오지 못했습니다.'
+          : '갤러리에서 이미지를 불러오지 못했습니다.';
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('갤러리에서 이미지를 불러오지 못했습니다.')),
+        SnackBar(content: Text(message)),
       );
     }
   }
 
+  Future<void> _pickFromGallery() async {
+    await _selectCropAndAnalyze(ImageSource.gallery);
+  }
+
   Future<void> _pickFromCamera() async {
-    try {
-      final image = await _picker.pickImage(
-        source: ImageSource.camera,
-        imageQuality: 95,
-      );
-
-      if (image == null) {
-        return;
-      }
-
-      final bytes = await image.readAsBytes();
-
-      setState(() {
-        _selectedImage = image;
-        _selectedImageBytes = bytes;
-      });
-    } catch (_) {
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('카메라에서 이미지를 불러오지 못했습니다.')),
-      );
-    }
+    await _selectCropAndAnalyze(ImageSource.camera);
   }
 
   Future<void> _startAnalysis() async {

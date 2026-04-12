@@ -110,9 +110,10 @@ async def search_ingredients(extracted_text: str) -> list[dict]:
 		if normalized_name in seen_names:
 			continue
 
-		# 70% 이상의 유사도만 통과시킨다.
-		best_score = max(fuzz.token_set_ratio(name, candidate) for candidate in candidates)
-		if best_score < 70:
+		score_pairs = [(candidate, fuzz.token_set_ratio(name, candidate)) for candidate in candidates]
+		best_candidate, best_score = max(score_pairs, key=lambda item: item[1])
+		logger.info("[OCR SEARCH] 성분=%s 최고점수=%d 후보=%s", name, best_score, best_candidate)
+		if best_score < 50:
 			continue
 
 		seen_names.add(normalized_name)
@@ -128,6 +129,7 @@ async def search_ingredients(extracted_text: str) -> list[dict]:
 	scored_matches.sort(key=lambda item: item[0], reverse=True)
 	result = [item[1] for item in scored_matches]
 	logger.info("[OCR SEARCH] 매칭된 성분명 목록: %s", [item.get("name", "") for item in result])
+	logger.info("[OCR SEARCH] 과라나 포함 여부: %s", any("과라나" in str(item.get("name", "")) for item in result))
 	
 	# 디버깅: 최종 반환 결과 로그
 	logger.info(f"최종 반환 성분 수: {len(result)}")

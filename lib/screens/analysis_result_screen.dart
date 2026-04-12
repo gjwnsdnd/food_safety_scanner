@@ -213,38 +213,6 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  // 다른 음식들
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF3F4F6),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          '다른 음식들',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF111827),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          uses.isNotEmpty ? uses : '등록된 음식 정보가 없습니다.',
-                          style: const TextStyle(
-                            fontSize: 15,
-                            height: 1.45,
-                            color: Color(0xFF334155),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
                   // 주의사항
                   Container(
                     width: double.infinity,

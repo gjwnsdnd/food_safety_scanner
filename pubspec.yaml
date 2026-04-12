@@ -29,6 +29,7 @@ dependencies:
 
   # ===== 이미지 선택 (라벨 촬영/갤러리) =====
   image_picker: ^1.0.0
+  image_cropper: ^8.0.2
 
   # ===== JSON 직렬화 =====
   json_serializable: ^6.7.1
