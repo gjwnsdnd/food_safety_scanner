@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+from difflib import SequenceMatcher
 import logging
 import re
 
 import numpy as np
-from rapidfuzz import fuzz
 
 from google.auth.exceptions import DefaultCredentialsError
 from google.cloud import vision
@@ -103,7 +103,10 @@ async def search_ingredients(extracted_text: str) -> list[dict]:
 		if normalized_name in seen_names:
 			continue
 
-		score_pairs = [(candidate, fuzz.token_set_ratio(name, candidate)) for candidate in candidates]
+		score_pairs = [
+			(candidate, int(SequenceMatcher(None, name, candidate).ratio() * 100))
+			for candidate in candidates
+		]
 		best_candidate, best_score = max(score_pairs, key=lambda item: item[1])
 		logger.info(
 			"[OCR SEARCH] 유사도 점수: db=%s, 후보=%s, score=%d",
@@ -111,7 +114,7 @@ async def search_ingredients(extracted_text: str) -> list[dict]:
 			best_candidate,
 			best_score,
 		)
-		if best_score < 50:
+		if best_score <= 70:
 			continue
 
 		seen_names.add(normalized_name)
