@@ -317,7 +317,7 @@ class _MainScreenState extends State<MainScreen> {
                     ),
                     Text(
                       '2. 성분표 분석하기로 성분표를 촬영 또는 업로드하세요.',
-                      style: TextStyle(
+                      style: TextStyle( 
                         fontSize: s(14),
                         fontWeight: FontWeight.w500,
                         color: Color(0xFF48566A),
