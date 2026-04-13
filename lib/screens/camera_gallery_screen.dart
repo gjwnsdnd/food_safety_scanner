@@ -1,6 +1,8 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:logger/logger.dart';
 
@@ -21,6 +23,29 @@ class _CameraGalleryScreenState extends State<CameraGalleryScreen> {
   XFile? _selectedImage;
   Uint8List? _selectedImageBytes;
   bool _isAnalyzing = false;
+
+  Future<void> _cropImage() async {
+    if (_selectedImage == null) {
+      return;
+    }
+
+    final croppedFile = await ImageCropper().cropImage(
+      sourcePath: _selectedImage!.path,
+      compressFormat: ImageCompressFormat.jpg,
+      compressQuality: 95,
+    );
+
+    if (croppedFile != null) {
+      final bytes = await File(croppedFile.path).readAsBytes();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _selectedImage = XFile(croppedFile.path);
+        _selectedImageBytes = bytes;
+      });
+    }
+  }
 
   Future<void> _selectAndAnalyze(ImageSource source) async {
     try {
@@ -184,17 +209,35 @@ class _CameraGalleryScreenState extends State<CameraGalleryScreen> {
                         Positioned(
                           top: 8,
                           right: 8,
-                          child: FilledButton.tonal(
-                            onPressed: _pickFromGallery,
-                            style: FilledButton.styleFrom(
-                              backgroundColor: const Color(0xDD0B1730),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              FilledButton.tonal(
+                                onPressed: _pickFromGallery,
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: const Color(0xDD0B1730),
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
+                                ),
+                                child: const Text('다시 선택'),
                               ),
-                            ),
-                            child: const Text('다시 선택'),
+                              const SizedBox(width: 8),
+                              FilledButton.tonal(
+                                onPressed: _cropImage,
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: const Color(0xDD0B1730),
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
+                                ),
+                                child: const Text('자르기'),
+                              ),
+                            ],
                           ),
                         ),
                       ],
