@@ -213,7 +213,7 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  // 주의사항
+                  // 다른 음식들
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
@@ -225,7 +225,7 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          '주의사항',
+                          '다른 음식들',
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
@@ -234,7 +234,7 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          caution.isNotEmpty ? caution : '등록된 주의사항이 없습니다.',
+                          uses.isNotEmpty ? uses : '등록된 음식 정보가 없습니다.',
                           style: const TextStyle(
                             fontSize: 15,
                             height: 1.45,
