@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from difflib import SequenceMatcher
 import logging
 import re
 
@@ -104,20 +103,8 @@ async def search_ingredients(extracted_text: str) -> list[dict]:
 			if not normalized_candidate:
 				continue
 
-			ratio = 1.0 if normalized_db == normalized_candidate else SequenceMatcher(
-				None,
-				normalized_db,
-				normalized_candidate,
-			).ratio()
-			score = int(ratio * 100)
-			logger.info(
-				"[OCR SEARCH] 유사도 점수: db=%s, 후보=%s, score=%d",
-				db_word,
-				candidate,
-				score,
-			)
-
 			if normalized_db == normalized_candidate:
+				logger.info("[OCR SEARCH] 정확일치: db=%s, 후보=%s", db_word, candidate)
 				serialized_document = dict(document)
 				if "_id" in serialized_document:
 					serialized_document["_id"] = str(serialized_document["_id"])
@@ -126,6 +113,7 @@ async def search_ingredients(extracted_text: str) -> list[dict]:
 				break
 
 			if normalized_db in normalized_candidate or normalized_candidate in normalized_db:
+				logger.info("[OCR SEARCH] 부분일치: db=%s, 후보=%s", db_word, candidate)
 				serialized_document = dict(document)
 				if "_id" in serialized_document:
 					serialized_document["_id"] = str(serialized_document["_id"])
