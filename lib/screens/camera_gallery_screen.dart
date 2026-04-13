@@ -45,8 +45,7 @@ class _CameraGalleryScreenState extends State<CameraGalleryScreen> {
         _selectedImage = image;
         _selectedImageBytes = bytes;
       });
-
-      await _startAnalysis();
+      // await _startAnalysis();
     } catch (e) {
       logger.d('갤러리 선택 에러: $e');
       if (!mounted) {
