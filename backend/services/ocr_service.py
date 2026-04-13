@@ -104,7 +104,10 @@ async def search_ingredients(extracted_text: str) -> list[dict]:
 			continue
 
 		score_pairs = [
-			(candidate, int(SequenceMatcher(None, name, candidate).ratio() * 100))
+			(
+				candidate,
+				int((ratio := SequenceMatcher(None, name, candidate).ratio()) * 100),
+			)
 			for candidate in candidates
 		]
 		best_candidate, best_score = max(score_pairs, key=lambda item: item[1])
