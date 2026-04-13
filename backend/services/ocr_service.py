@@ -47,39 +47,36 @@ async def search_ingredients(extracted_text: str) -> list[dict]:
 	if db_service.db is None:
 		return []
 
-	# OCR 텍스트를 쉼표/개행/중점 등으로 분리한 뒤 정규표현식으로 성분명 후보를 추출한다.
+	def normalize(value: str) -> str:
+		return value.lower().replace(" ", "").replace("-", "")
+
 	raw_chunks = [
 		chunk.strip()
 		for chunk in re.split(r"[,\n\r·•;:/|]+", text)
 		if chunk and chunk.strip()
 	]
 
-	candidates: list[str] = []
+	extracted_words: list[str] = []
 	for chunk in raw_chunks:
 		normalized_chunk = re.sub(r"\s+", " ", chunk).strip()
 		if normalized_chunk:
-			candidates.append(normalized_chunk)
+			extracted_words.append(normalized_chunk)
 
 		for token in re.findall(r"[가-힣A-Za-z][가-힣A-Za-z0-9()\-\s]{0,80}", chunk):
 			normalized_token = re.sub(r"\s+", " ", token).strip()
 			if len(normalized_token) >= 2:
-				candidates.append(normalized_token)
+				extracted_words.append(normalized_token)
 
-	# 새로운 방식: 연속된 한글 단어(2글자 이상) 추출 후 기존 후보와 합친다.
 	korean_words = re.findall(r"[가-힣]{2,}", text)
-	candidates.extend(korean_words)
+	extracted_words.extend(korean_words)
+	extracted_words = list(set(extracted_words))
 
-	# 중복 제거
-	candidates = list(set(candidates))
-
-	if not candidates:
+	if not extracted_words:
 		logger.info("추출된 성분 후보 없음")
 		return []
 
-	# 디버깅: 추출된 단어들 로그 출력
-	logger.info(f"추출된 모든 단어: {candidates}")
-	logger.info(f"추출된 한글 단어 ({len(korean_words)}개): {korean_words}")
-	logger.info("[OCR SEARCH] 과라나 후보 포함 여부: %s", "과라나" in candidates)
+	logger.info("추출된 모든 후보: %s", extracted_words)
+	logger.info("[OCR SEARCH] 과라나 후보 포함 여부: %s", "과라나" in extracted_words)
 
 	try:
 		cursor = db_service.db["ingredients"].find({})
@@ -90,48 +87,53 @@ async def search_ingredients(extracted_text: str) -> list[dict]:
 
 	logger.info(f"데이터베이스에서 {len(documents)}개의 성분 로드됨")
 
-	scored_matches: list[tuple[int, dict]] = []
+	matched_ingredients: list[dict] = []
 	seen_names: set[str] = set()
-	matched_details: list[str] = []
 
 	for document in documents:
-		name = str(document.get("name", "")).strip()
-		if not name:
+		db_word = str(document.get("name", "")).strip()
+		if not db_word:
 			continue
 
-		normalized_name = re.sub(r"\s+", "", name).lower()
-		if normalized_name in seen_names:
+		normalized_db = normalize(db_word)
+		if not normalized_db or normalized_db in seen_names:
 			continue
 
-		score_pairs = [
-			(
+		for candidate in extracted_words:
+			normalized_candidate = normalize(candidate)
+			if not normalized_candidate:
+				continue
+
+			ratio = 1.0 if normalized_db == normalized_candidate else SequenceMatcher(
+				None,
+				normalized_db,
+				normalized_candidate,
+			).ratio()
+			score = int(ratio * 100)
+			logger.info(
+				"[OCR SEARCH] 유사도 점수: db=%s, 후보=%s, score=%d",
+				db_word,
 				candidate,
-				int((ratio := SequenceMatcher(None, name, candidate).ratio()) * 100),
+				score,
 			)
-			for candidate in candidates
-		]
-		best_candidate, best_score = max(score_pairs, key=lambda item: item[1])
-		logger.info(
-			"[OCR SEARCH] 유사도 점수: db=%s, 후보=%s, score=%d",
-			name,
-			best_candidate,
-			best_score,
-		)
-		if best_score <= 70:
-			continue
 
-		seen_names.add(normalized_name)
-		serialized_document = dict(document)
-		if "_id" in serialized_document:
-			serialized_document["_id"] = str(serialized_document["_id"])
-		scored_matches.append((best_score, serialized_document))
-		matched_details.append(f"{name} (점수: {best_score}%)")
+			if normalized_db == normalized_candidate:
+				serialized_document = dict(document)
+				if "_id" in serialized_document:
+					serialized_document["_id"] = str(serialized_document["_id"])
+				matched_ingredients.append(serialized_document)
+				seen_names.add(normalized_db)
+				break
 
-	# 디버깅: 매칭된 성분들 로그 출력
-	logger.info(f"매칭된 성분 ({len(matched_details)}개): {matched_details}")
+			if normalized_db in normalized_candidate or normalized_candidate in normalized_db:
+				serialized_document = dict(document)
+				if "_id" in serialized_document:
+					serialized_document["_id"] = str(serialized_document["_id"])
+				matched_ingredients.append(serialized_document)
+				seen_names.add(normalized_db)
+				break
 
-	scored_matches.sort(key=lambda item: item[0], reverse=True)
-	result = [item[1] for item in scored_matches]
+	result = matched_ingredients
 	logger.info("[OCR SEARCH] 매칭된 성분명 목록: %s", [item.get("name", "") for item in result])
 	logger.info("[OCR SEARCH] 과라나 포함 여부: %s", any("과라나" in str(item.get("name", "")) for item in result))
 	
