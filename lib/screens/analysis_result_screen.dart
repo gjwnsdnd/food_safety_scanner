@@ -327,14 +327,24 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
         backgroundColor: const Color(0xFFF7F8FA),
         elevation: 0,
         scrolledUnderElevation: 0,
-        centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
         ),
-        title: const Text(
-          '분석 결과',
-          style: TextStyle(fontSize: 30, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+        titleSpacing: 0,
+        title: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '분석 결과',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+            ),
+            SizedBox(height: 2),
+            Text(
+              '제품의 성분을 확인하세요',
+              style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+            ),
+          ],
         ),
       ),
       body: SingleChildScrollView(
@@ -502,6 +512,45 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
                   children: _ingredients.map(_buildIngredientCard).toList(growable: false),
                 ),
               ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEBF3FF),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFD0E2FF)),
+              ),
+              child: const Text(
+                '결과 가이드\n• 제품명을 입력해 저장하세요\n• 성분을 눌러 상세정보를 확인하세요',
+                style: TextStyle(
+                  fontSize: 15,
+                  height: 1.6,
+                  color: Color(0xFF1D4ED8),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            SizedBox(
+              height: 56,
+              child: FilledButton(
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('결과 저장/히스토리 이동 기능은 준비 중입니다.')),
+                  );
+                },
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF2563EB),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: const Text(
+                  '결과 저장하기',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+                ),
+              ),
+            ),
           ],
         ),
       ),

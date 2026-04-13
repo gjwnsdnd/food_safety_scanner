@@ -155,12 +155,12 @@ class _CameraGalleryScreenState extends State<CameraGalleryScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '성분표 분석',
+              '성분표 촬영 및 업로드',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
             ),
             SizedBox(height: 2),
             Text(
-              '성분표를 촬영하거나 선택하세요',
+              '성분표를 촬영하거나 갤러리에서 선택하세요',
               style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
             ),
           ],

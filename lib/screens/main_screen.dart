@@ -91,17 +91,6 @@ class _MainScreenState extends State<MainScreen> {
                       ],
                     ),
                   ),
-                  IconButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const PreferencesScreen()),
-                      ).then((_) => _loadPreferences());
-                    },
-                    icon: Icon(Icons.settings_outlined, size: s(22)),
-                    color: const Color(0xFF2B3443),
-                    tooltip: '설정',
-                  ),
                 ],
               ),
               SizedBox(height: s(48)),
@@ -318,7 +307,7 @@ class _MainScreenState extends State<MainScreen> {
                     ),
                     SizedBox(height: s(10)),
                     Text(
-                      '1.  기피 성분을 미리 설정하세요. (알레르기, 비건 등)',
+                      '1. 기피 성분을 미리 설정하세요. (알레르기, 비건 등)',
                       style: TextStyle(
                         fontSize: s(14),
                         fontWeight: FontWeight.w500,
@@ -327,7 +316,7 @@ class _MainScreenState extends State<MainScreen> {
                       ),
                     ),
                     Text(
-                      '2.  성분표 분석하기를 눌러 성분표를 촬영하거나 업로드하세요.',
+                      '2. 성분표 분석하기로 성분표를 촬영 또는 업로드하세요.',
                       style: TextStyle(
                         fontSize: s(14),
                         fontWeight: FontWeight.w500,
@@ -336,7 +325,7 @@ class _MainScreenState extends State<MainScreen> {
                       ),
                     ),
                     Text(
-                      '3.  지난 분석기록을 확인하세요.',
+                      '3. 저장한 분석기록을 확인하세요.',
                       style: TextStyle(
                         fontSize: s(14),
                         fontWeight: FontWeight.w500,
