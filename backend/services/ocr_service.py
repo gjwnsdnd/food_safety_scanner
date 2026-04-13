@@ -13,7 +13,7 @@ from backend.services.db_service import get_db_service
 
 logger = logging.getLogger(__name__)
 
-
+ 
 def preprocess_image(image_bytes: bytes) -> np.ndarray:
 	if not image_bytes:
 		raise ValueError("이미지 데이터가 비어 있습니다.")
