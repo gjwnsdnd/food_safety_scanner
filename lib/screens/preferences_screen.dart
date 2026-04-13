@@ -22,6 +22,7 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
     '땅콩',
     '밀',
     '새우',
+    '아라비아검',
     '아황산나트륨',
     '안식향산',
     '알코올(에탄올)',

@@ -58,6 +58,22 @@ async def lifespan(app: FastAPI):
     # startup
     try:
         await get_db_service().connect()
+        db = get_db_service().db
+        if db is not None:
+            await db["ingredients"].update_one(
+                {"name": "아라비아검"},
+                {
+                    "$set": {
+                        "name": "아라비아검",
+                        "caution": "대량 섭취 시 소화 장애 가능",
+                        "uses": "증점제, 유화제",
+                        "description": "아카시아 나무에서 추출한 천연 검. 안정제로 사용됨",
+                        "is_harmful": False,
+                    }
+                },
+                upsert=True,
+            )
+            logger.info("Seeded ingredient: 아라비아검")
     except Exception:
         logger.exception("MongoDB connection failed on startup")
 
