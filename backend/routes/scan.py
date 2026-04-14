@@ -117,7 +117,6 @@ async def scan_ocr_only(file: UploadFile = File(...)) -> OcrOnlyResponse:
         logger.info("[OCR PREPROCESS] completed: file_name=%s", file.filename or "")
 
         extracted_text = extract_text_from_image(content)
-        print(f"[OCR TEXT PREVIEW] {extracted_text[:200]}", flush=True)
         logger.info("OCR extracted text (%s):\n%s", file.filename or "", extracted_text)
 
         # search_ingredients() 호출 및 에러 처리
@@ -150,8 +149,7 @@ async def scan_ocr_only(file: UploadFile = File(...)) -> OcrOnlyResponse:
             ingredient_names = [str(item.get("name", "")) for item in ingredients[:10]]  # 상위 10개만
             logger.info("[OCR SEARCH] 디버깅: 반환된 성분 수 = %d", len(ingredients))
             logger.info("[OCR SEARCH] 반환된 성분명 (상위 10개): %s", ingredient_names)
-            if ingredients:
-                logger.info("[OCR SEARCH] 첫 번째 성분명: %s", ingredients[0].get("name", ""))
+        
         else:
             logger.info("[OCR SEARCH] 디버깅: 반환된 성분 수 = 0 (검색 결과 없음)")
 

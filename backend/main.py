@@ -61,7 +61,7 @@ async def lifespan(app: FastAPI):
     except Exception:
         logger.exception("MongoDB connection failed on startup")
 
-    yield 
+    yield
 
     # shutdown
     try:
