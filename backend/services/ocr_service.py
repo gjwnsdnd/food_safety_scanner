@@ -47,8 +47,40 @@ async def search_ingredients(extracted_text: str) -> list[dict]:
 		return []
 
 	def normalize(value: str) -> str:
-		return value.lower().replace(" ", "").replace("-", "")
+		"""공백과 하이픈을 제거하고 소문자로 변환"""
+		return re.sub(r"[\s-]+", "", value.lower())
 
+	def serialize_document(document: dict) -> dict:
+		"""_id를 str로 변환하여 JSON 직렬화 가능하게 함"""
+		serialized = dict(document)
+		if "_id" in serialized:
+			serialized["_id"] = str(serialized["_id"])
+		return serialized
+
+	# 1. DB에서 모든 성분 로드
+	try:
+		cursor = db_service.db["ingredients"].find({})
+		all_documents = await cursor.to_list(length=5000)
+	except Exception:
+		logger.exception("Failed to load all ingredients from database")
+		return []
+
+	if not all_documents:
+		return []
+
+	# 정규화된 맵 생성: {정규화된이름: 원본문서}
+	normalized_ingredient_map: dict[str, dict] = {}
+	for document in all_documents:
+		original_name = str(document.get("name", "")).strip()
+		if original_name:
+			normalized_name = normalize(original_name)
+			if normalized_name:
+				normalized_ingredient_map[normalized_name] = document
+
+	if not normalized_ingredient_map:
+		return []
+
+	# 2. 텍스트에서 성분 후보 추출
 	raw_chunks = [
 		chunk.strip()
 		for chunk in re.split(r"[,\n\r·•;:/|]+", text)
@@ -56,78 +88,64 @@ async def search_ingredients(extracted_text: str) -> list[dict]:
 	]
 
 	extracted_words: list[str] = []
+	seen_candidates: set[str] = set()
+
+	# 청크 단위 추가
 	for chunk in raw_chunks:
 		normalized_chunk = re.sub(r"\s+", " ", chunk).strip()
-		if normalized_chunk:
+		if normalized_chunk and normalized_chunk not in seen_candidates:
 			extracted_words.append(normalized_chunk)
+			seen_candidates.add(normalized_chunk)
 
+	# 토큰 단위 추가
+	for chunk in raw_chunks:
 		for token in re.findall(r"[가-힣A-Za-z][가-힣A-Za-z0-9()\-\s]{0,80}", chunk):
 			normalized_token = re.sub(r"\s+", " ", token).strip()
-			if len(normalized_token) >= 2:
+			if len(normalized_token) >= 2 and normalized_token not in seen_candidates:
 				extracted_words.append(normalized_token)
+				seen_candidates.add(normalized_token)
 
-	korean_words = re.findall(r"[가-힣]{2,}", text)
-	extracted_words.extend(korean_words)
-	extracted_words = list(set(extracted_words))
+	# 한글 단어 추가
+	for word in re.findall(r"[가-힣]{2,}", text):
+		if word not in seen_candidates:
+			extracted_words.append(word)
+			seen_candidates.add(word)
 
 	if not extracted_words:
-		logger.info("추출된 성분 후보 없음")
 		return []
 
-	logger.info("추출된 모든 후보: %s", extracted_words)
+	# 추출된 단어도 정규화된 set으로 변환
+	normalized_extracted: set[str] = set(normalize(word) for word in extracted_words if normalize(word))
 
-	try:
-		cursor = db_service.db["ingredients"].find({})
-		documents = await cursor.to_list(length=5000)
-	except Exception:
-		logger.exception("Failed to load ingredients for OCR search")
+	if not normalized_extracted:
 		return []
 
-	logger.info(f"데이터베이스에서 {len(documents)}개의 성분 로드됨")
-
+	# 3. 매칭 로직 수행
 	matched_ingredients: list[dict] = []
 	seen_names: set[str] = set()
 
-	for document in documents:
-		db_word = str(document.get("name", "")).strip()
-		if not db_word:
+	# 정확일치(정규화된 맵 키와 비교)
+	for normalized_extracted_word in normalized_extracted:
+		if normalized_extracted_word in normalized_ingredient_map:
+			if normalized_extracted_word not in seen_names:
+				matched_ingredients.append(serialize_document(normalized_ingredient_map[normalized_extracted_word]))
+				seen_names.add(normalized_extracted_word)
+
+	# 부분일치 (정규화된 이름에 단어가 포함되거나, 단어에 이름이 포함)
+	for normalized_extracted_word in normalized_extracted:
+		if normalized_extracted_word in seen_names:
 			continue
 
-		normalized_db = normalize(db_word)
-		if not normalized_db or normalized_db in seen_names:
-			continue
-
-		for candidate in extracted_words:
-			normalized_candidate = normalize(candidate)
-			if not normalized_candidate:
+		for normalized_db_name, document in normalized_ingredient_map.items():
+			if normalized_db_name in seen_names:
 				continue
 
-			if normalized_db == normalized_candidate:
-				logger.info("[OCR SEARCH] 정확일치: db=%s, 후보=%s", db_word, candidate)
-				serialized_document = dict(document)
-				if "_id" in serialized_document:
-					serialized_document["_id"] = str(serialized_document["_id"])
-				matched_ingredients.append(serialized_document)
-				seen_names.add(normalized_db)
-				break
+			if (normalized_db_name in normalized_extracted_word or
+				normalized_extracted_word in normalized_db_name):
+				matched_ingredients.append(serialize_document(document))
+				seen_names.add(normalized_db_name)
 
-			if normalized_db in normalized_candidate or normalized_candidate in normalized_db:
-				logger.info("[OCR SEARCH] 부분일치: db=%s, 후보=%s", db_word, candidate)
-				serialized_document = dict(document)
-				if "_id" in serialized_document:
-					serialized_document["_id"] = str(serialized_document["_id"])
-				matched_ingredients.append(serialized_document)
-				seen_names.add(normalized_db)
-				break
-
-	result = matched_ingredients
-	logger.info("[OCR SEARCH] 매칭된 성분명 목록: %s", [item.get("name", "") for item in result])
-	logger.info(f"최종 반환 성분 수: {len(result)}")
-	if result:
-		returned_names = [str(item.get("name", "")) for item in result[:5]]  # 처음 5개만 로그
-		logger.info(f"반환된 성분 (상위 5개): {returned_names}")
-	
-	return result
+	return matched_ingredients
 
 
 def extract_text_from_image(image_bytes: bytes) -> str:
