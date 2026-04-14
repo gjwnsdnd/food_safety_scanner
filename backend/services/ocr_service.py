@@ -75,7 +75,6 @@ async def search_ingredients(extracted_text: str) -> list[dict]:
 		return []
 
 	logger.info("추출된 모든 후보: %s", extracted_words)
-	logger.info("[OCR SEARCH] 과라나 후보 포함 여부: %s", "과라나" in extracted_words)
 
 	try:
 		cursor = db_service.db["ingredients"].find({})
@@ -123,14 +122,10 @@ async def search_ingredients(extracted_text: str) -> list[dict]:
 
 	result = matched_ingredients
 	logger.info("[OCR SEARCH] 매칭된 성분명 목록: %s", [item.get("name", "") for item in result])
-	logger.info("[OCR SEARCH] 과라나 포함 여부: %s", any("과라나" in str(item.get("name", "")) for item in result))
-	
-	# 디버깅: 최종 반환 결과 로그
 	logger.info(f"최종 반환 성분 수: {len(result)}")
 	if result:
 		returned_names = [str(item.get("name", "")) for item in result[:5]]  # 처음 5개만 로그
 		logger.info(f"반환된 성분 (상위 5개): {returned_names}")
-		logger.info("[OCR SEARCH] 과라나 최종 포함 여부: %s", any("과라나" in str(item.get("name", "")) for item in result))
 	
 	return result
 
