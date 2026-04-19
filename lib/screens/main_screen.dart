@@ -246,22 +246,11 @@ class _MainScreenState extends State<MainScreen> {
                             ),
                             SizedBox(height: s(6)),
                             Text(
-                              '총 분석 횟수',
+                              '저장된 분석 기록을 확인하세요',
                               style: TextStyle(
-                                fontSize: s(11.5),
+                                fontSize: s(12.5),
                                 color: _textMuted,
                                 fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            SizedBox(height: s(4)),
-                            Text(
-                              '0회',
-                              style: TextStyle(
-                                fontSize: s(22),
-                                height: 1.0,
-                                color: Color(0xFF09162E),
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.5,
                               ),
                             ),
                           ],

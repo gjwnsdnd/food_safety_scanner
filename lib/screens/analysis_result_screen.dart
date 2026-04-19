@@ -2,7 +2,9 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
+import '../models/analysis_history.dart';
 import '../services/api_service.dart';
+import '../services/history_service.dart';
 
 class AnalysisResultScreen extends StatefulWidget {
   const AnalysisResultScreen({Key? key}) : super(key: key);
@@ -16,6 +18,8 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
   final TextEditingController _productNameController = TextEditingController();
 
   bool _didReadArguments = false;
+  bool _historySaved = false;
+  bool _isHistoryView = false;
   bool _isLoadingPreferences = true;
 
   List<Map<String, dynamic>> _ingredients = [];
@@ -41,9 +45,26 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
       _extractedText = (map['extracted_text'] ?? '').toString().trim();
       _fileName = (map['file_name'] ?? '').toString().trim();
       _imageBytes = map['image_bytes'] is Uint8List ? map['image_bytes'] as Uint8List : null;
+      _isHistoryView = map['is_history_view'] == true;
+
+      final productNameFromArgs = (map['product_name'] ?? '').toString().trim();
+      if (productNameFromArgs.isNotEmpty) {
+        _productNameController.text = productNameFromArgs;
+      }
+
+      final avoidedFromArgs = map['user_avoid_ingredients'];
+      if (avoidedFromArgs is List) {
+        _avoidedIngredients = avoidedFromArgs
+            .map((item) => _normalizeIngredientName(item.toString()))
+            .where((value) => value.isNotEmpty)
+            .toSet();
+        _isLoadingPreferences = false;
+      }
     }
 
-    _loadPreferences();
+    if (_isLoadingPreferences) {
+      _loadPreferences();
+    }
   }
 
   @override
@@ -128,6 +149,84 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
     }
 
     return false;
+  }
+
+  String _pickFirstNonEmpty(Map<String, dynamic> source, List<String> keys) {
+    for (final key in keys) {
+      final value = (source[key] ?? '').toString().trim();
+      if (value.isNotEmpty) {
+        return value;
+      }
+    }
+    return '';
+  }
+
+  HistoryIngredient _toHistoryIngredient(Map<String, dynamic> ingredient) {
+    return HistoryIngredient(
+      name: _ingredientName(ingredient),
+      caution: _pickFirstNonEmpty(ingredient, ['caution', 'warning', 'injuryYn', 'useCondition']),
+      description: _pickFirstNonEmpty(ingredient, ['description']),
+      engName: _pickFirstNonEmpty(ingredient, ['eng_name', 'engName']),
+      classification: _pickFirstNonEmpty(ingredient, ['classification', 'class', 'injuryYn']),
+    );
+  }
+
+  Future<List<String>> _loadAvoidedIngredientNamesForHistory() async {
+    try {
+      final response = await _apiService.getPreferences('default');
+      final avoided = response['avoided_ingredients'];
+      if (avoided is List) {
+        return avoided.map((item) => item.toString().trim()).where((item) => item.isNotEmpty).toList();
+      }
+    } catch (_) {
+      // 저장 실패를 막지 않기 위해 기피 성분 조회 실패는 무시
+    }
+    return <String>[];
+  }
+
+  Future<void> _saveAnalysisToHistory() async {
+    if (_historySaved) {
+      return;
+    }
+
+    if (_ingredients.isEmpty) {
+      _historySaved = true;
+      return;
+    }
+
+    final historyIngredients = _ingredients
+        .map(_toHistoryIngredient)
+        .where((item) => item.name.trim().isNotEmpty)
+        .toList(growable: false);
+
+    if (historyIngredients.isEmpty) {
+      _historySaved = true;
+      return;
+    }
+
+    try {
+      final avoidIngredients = await _loadAvoidedIngredientNamesForHistory();
+
+      await HistoryService.saveAnalysis(
+        productName: _productNameController.text,
+        ingredients: historyIngredients,
+        userAvoidIngredients: avoidIngredients,
+      );
+      _historySaved = true;
+    } catch (_) {
+      // 자동 저장 실패 시 화면 동작은 유지
+    }
+  }
+
+  Future<void> _saveAndStay() async {
+    final wasSaved = _historySaved;
+    await _saveAnalysisToHistory();
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(wasSaved ? '이미 저장된 분석 결과입니다.' : '분석결과가 저장되었습니다.')),
+    );
   }
 
   void _showIngredientDetailModal(Map<String, dynamic> ingredient) {
@@ -329,7 +428,13 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
         scrolledUnderElevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
+          onPressed: () {
+            if (_isHistoryView) {
+              Navigator.pop(context);
+              return;
+            }
+            Navigator.of(context).popUntil((route) => route.isFirst);
+          },
         ),
         titleSpacing: 0,
         title: const Column(
@@ -512,45 +617,43 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
                   children: _ingredients.map(_buildIngredientCard).toList(growable: false),
                 ),
               ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-              decoration: BoxDecoration(
-                color: const Color(0xFFEBF3FF),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFD0E2FF)),
-              ),
-              child: const Text(
-                '결과 가이드\n• 제품명을 입력해 저장하세요\n• 성분을 눌러 상세정보를 확인하세요',
-                style: TextStyle(
-                  fontSize: 15,
-                  height: 1.6,
-                  color: Color(0xFF1D4ED8),
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            SizedBox(
-              height: 56,
-              child: FilledButton(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('결과 저장/히스토리 이동 기능은 준비 중입니다.')),
-                  );
-                },
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF2563EB),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
+            if (!_isHistoryView) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEBF3FF),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFD0E2FF)),
                 ),
                 child: const Text(
-                  '결과 저장하기',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+                  '결과 가이드\n• 제품명을 입력해 저장하세요\n• 성분을 눌러 상세정보를 확인하세요',
+                  style: TextStyle(
+                    fontSize: 15,
+                    height: 1.6,
+                    color: Color(0xFF1D4ED8),
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
-            ),
+              const SizedBox(height: 14),
+              SizedBox(
+                height: 56,
+                child: FilledButton(
+                  onPressed: _saveAndStay,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF2563EB),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: const Text(
+                    '분석결과 저장하기',
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
