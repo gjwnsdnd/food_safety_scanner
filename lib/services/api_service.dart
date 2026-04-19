@@ -119,6 +119,31 @@ class ApiService {
 		}
 	}
 
+	Future<Map<String, dynamic>?> getIngredientDetail(String name) async {
+		try {
+			final response = await _dio.get<Map<String, dynamic>>(
+				'/api/ingredients/detail',
+				queryParameters: {'name': name},
+			);
+
+			final data = response.data;
+			if (data == null) {
+				return null;
+			}
+
+			final detail = data['detail'];
+			if (detail is Map) {
+				return detail.map((key, value) => MapEntry(key.toString(), value));
+			}
+
+			return null;
+		} on DioException catch (e) {
+			_handleDioError(e);
+		} catch (e) {
+			throw Exception('성분 상세 조회 중 오류가 발생했습니다: $e');
+		}
+	}
+
 	Future<Map<String, dynamic>> savePreferences(
 		String userId,
 		List<String> avoidedIngredients,

@@ -12,20 +12,43 @@ class HistoryService {
   static Box<AnalysisHistory> get _box => Hive.box<AnalysisHistory>(boxName);
 
   static Future<AnalysisHistory> saveAnalysis({
+    String? historyId,
     required String productName,
     required List<HistoryIngredient> ingredients,
     required List<String> userAvoidIngredients,
+    DateTime? analyzedDate,
   }) async {
     final history = AnalysisHistory(
-      id: _uuid.v4(),
+      id: historyId ?? _uuid.v4(),
       productName: productName.trim().isEmpty ? '제품명 미입력' : productName.trim(),
-      analyzedDate: DateTime.now(),
+      analyzedDate: analyzedDate ?? DateTime.now(),
       ingredients: ingredients,
       userAvoidIngredients: userAvoidIngredients,
     );
 
     await _box.put(history.id, history);
     return history;
+  }
+
+  static Future<AnalysisHistory?> updateHistory({
+    required String historyId,
+    required String productName,
+  }) async {
+    final existing = _box.get(historyId);
+    if (existing == null) {
+      return null;
+    }
+
+    final updated = AnalysisHistory(
+      id: existing.id,
+      productName: productName.trim().isEmpty ? '제품명 미입력' : productName.trim(),
+      analyzedDate: existing.analyzedDate,
+      ingredients: existing.ingredients,
+      userAvoidIngredients: existing.userAvoidIngredients,
+    );
+
+    await _box.put(updated.id, updated);
+    return updated;
   }
 
   static List<AnalysisHistory> getAllHistory() {

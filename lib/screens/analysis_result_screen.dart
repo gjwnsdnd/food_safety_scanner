@@ -21,6 +21,8 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
   bool _historySaved = false;
   bool _isHistoryView = false;
   bool _isLoadingPreferences = true;
+  String _historyId = '';
+  String _originalProductName = '';
 
   List<Map<String, dynamic>> _ingredients = [];
   String _extractedText = '';
@@ -46,10 +48,12 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
       _fileName = (map['file_name'] ?? '').toString().trim();
       _imageBytes = map['image_bytes'] is Uint8List ? map['image_bytes'] as Uint8List : null;
       _isHistoryView = map['is_history_view'] == true;
+      _historyId = (map['history_id'] ?? '').toString().trim();
 
       final productNameFromArgs = (map['product_name'] ?? '').toString().trim();
       if (productNameFromArgs.isNotEmpty) {
         _productNameController.text = productNameFromArgs;
+        _originalProductName = productNameFromArgs;
       }
 
       final avoidedFromArgs = map['user_avoid_ingredients'];
@@ -64,6 +68,10 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
 
     if (_isLoadingPreferences) {
       _loadPreferences();
+    }
+
+    if (_isHistoryView) {
+      _loadHistoryIngredientDetails();
     }
   }
 
@@ -93,6 +101,50 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
       setState(() {
         _isLoadingPreferences = false;
       });
+    }
+  }
+
+  Future<void> _loadHistoryIngredientDetails() async {
+    if (!_isHistoryView || _ingredients.isEmpty) {
+      return;
+    }
+
+    try {
+      final enrichedIngredients = <Map<String, dynamic>>[];
+
+      for (final ingredient in _ingredients) {
+        final name = _ingredientName(ingredient);
+        Map<String, dynamic>? detail;
+
+        if (name.isNotEmpty) {
+          detail = await _apiService.getIngredientDetail(name);
+        }
+
+        if (detail == null) {
+          enrichedIngredients.add(ingredient);
+          continue;
+        }
+
+        enrichedIngredients.add({
+          ...ingredient,
+          'description': (ingredient['description'] ?? detail['description'] ?? '').toString(),
+          'caution': (ingredient['caution'] ?? detail['caution'] ?? '').toString(),
+          'uses': (ingredient['uses'] ?? detail['uses'] ?? detail['useCondition'] ?? detail['use_condition'] ?? '').toString(),
+          'engName': (ingredient['engName'] ?? detail['eng_name'] ?? detail['engName'] ?? '').toString(),
+          'eng_name': (ingredient['eng_name'] ?? detail['eng_name'] ?? detail['engName'] ?? '').toString(),
+          'classification': (ingredient['classification'] ?? detail['classification'] ?? '').toString(),
+        });
+      }
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _ingredients = enrichedIngredients;
+      });
+    } catch (_) {
+      // 히스토리 상세 보강 실패 시 저장된 데이터만 사용
     }
   }
 
@@ -168,6 +220,7 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
       description: _pickFirstNonEmpty(ingredient, ['description']),
       engName: _pickFirstNonEmpty(ingredient, ['eng_name', 'engName']),
       classification: _pickFirstNonEmpty(ingredient, ['classification', 'class', 'injuryYn']),
+      uses: _pickFirstNonEmpty(ingredient, ['uses', 'useCondition', 'use_condition']),
     );
   }
 
@@ -194,10 +247,30 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
       return;
     }
 
-    final historyIngredients = _ingredients
-        .map(_toHistoryIngredient)
-        .where((item) => item.name.trim().isNotEmpty)
-        .toList(growable: false);
+    final historyIngredients = <HistoryIngredient>[];
+    for (final ingredient in _ingredients) {
+      final name = _ingredientName(ingredient);
+      Map<String, dynamic> mergedIngredient = ingredient;
+
+      if (name.isNotEmpty) {
+        try {
+          final detail = await _apiService.getIngredientDetail(name);
+          if (detail != null) {
+            mergedIngredient = {
+              ...ingredient,
+              ...detail,
+            };
+          }
+        } catch (_) {
+          // 저장 시 상세 조회가 실패해도 기본 데이터는 유지
+        }
+      }
+
+      final historyIngredient = _toHistoryIngredient(mergedIngredient);
+      if (historyIngredient.name.trim().isNotEmpty) {
+        historyIngredients.add(historyIngredient);
+      }
+    }
 
     if (historyIngredients.isEmpty) {
       _historySaved = true;
@@ -220,13 +293,49 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
 
   Future<void> _saveAndStay() async {
     final wasSaved = _historySaved;
-    await _saveAnalysisToHistory();
+    if (_isHistoryView && _historyId.isNotEmpty) {
+      try {
+        await HistoryService.updateHistory(
+          historyId: _historyId,
+          productName: _productNameController.text,
+        );
+        _historySaved = true;
+      } catch (_) {
+        // 변경 저장 실패 시 기존 UI 유지
+      }
+    } else {
+      await _saveAnalysisToHistory();
+    }
     if (!mounted) {
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(wasSaved ? '이미 저장된 분석 결과입니다.' : '분석결과가 저장되었습니다.')),
     );
+  }
+
+  Future<void> _handleBackPressed() async {
+    if (_isHistoryView && _historyId.isNotEmpty) {
+      final currentName = _productNameController.text.trim();
+      final originalName = _originalProductName.trim();
+      if (currentName != originalName) {
+        try {
+          await HistoryService.updateHistory(
+            historyId: _historyId,
+            productName: currentName,
+          );
+        } catch (_) {
+          // 뒤로가기 저장 실패 시에도 화면 복귀는 허용
+        }
+      }
+      if (!mounted) {
+        return;
+      }
+      Navigator.pop(context);
+      return;
+    }
+
+    Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
   void _showIngredientDetailModal(Map<String, dynamic> ingredient) {
@@ -428,13 +537,7 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen> {
         scrolledUnderElevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            if (_isHistoryView) {
-              Navigator.pop(context);
-              return;
-            }
-            Navigator.of(context).popUntil((route) => route.isFirst);
-          },
+          onPressed: _handleBackPressed,
         ),
         titleSpacing: 0,
         title: const Column(

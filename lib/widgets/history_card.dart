@@ -34,6 +34,7 @@ class HistoryCard extends StatelessWidget {
 						'engName': item.engName,
 						'eng_name': item.engName,
 						'classification': item.classification,
+										'uses': item.uses,
 					},
 				)
 				.toList(growable: false);
@@ -88,8 +89,8 @@ class HistoryCard extends StatelessWidget {
 			),
 			child: InkWell(
 				borderRadius: BorderRadius.circular(16),
-				onTap: () {
-					Navigator.push(
+				onTap: () async {
+					await Navigator.push(
 						context,
 						MaterialPageRoute(
 							builder: (_) => const AnalysisResultScreen(),
@@ -104,6 +105,7 @@ class HistoryCard extends StatelessWidget {
 							),
 						),
 					);
+					onDeleted();
 				},
 				onLongPress: () => _confirmDelete(context),
 				child: Padding(
@@ -122,6 +124,11 @@ class HistoryCard extends StatelessWidget {
 												color: Color(0xFF0F172A),
 											),
 										),
+									),
+									IconButton(
+										tooltip: '삭제',
+										onPressed: () => _confirmDelete(context),
+										icon: const Icon(Icons.delete_outline, color: Color(0xFF94A3B8)),
 									),
 									Container(
 										padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),

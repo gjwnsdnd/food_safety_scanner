@@ -63,6 +63,7 @@ class HistoryIngredient {
     required this.description,
     required this.engName,
     required this.classification,
+    required this.uses,
   });
 
   @HiveField(0)
@@ -79,6 +80,9 @@ class HistoryIngredient {
 
   @HiveField(4)
   String classification;
+
+  @HiveField(5)
+  String uses;
 }
 
 class AnalysisHistoryAdapter extends TypeAdapter<AnalysisHistory> {
@@ -137,13 +141,14 @@ class HistoryIngredientAdapter extends TypeAdapter<HistoryIngredient> {
       description: fields[2] as String? ?? '',
       engName: fields[3] as String? ?? '',
       classification: fields[4] as String? ?? '',
+      uses: fields[5] as String? ?? '',
     );
   }
 
   @override
   void write(BinaryWriter writer, HistoryIngredient obj) {
     writer
-      ..writeByte(5)
+      ..writeByte(6)
       ..writeByte(0)
       ..write(obj.name)
       ..writeByte(1)
@@ -153,6 +158,8 @@ class HistoryIngredientAdapter extends TypeAdapter<HistoryIngredient> {
       ..writeByte(3)
       ..write(obj.engName)
       ..writeByte(4)
-      ..write(obj.classification);
+      ..write(obj.classification)
+      ..writeByte(5)
+      ..write(obj.uses);
   }
 }
