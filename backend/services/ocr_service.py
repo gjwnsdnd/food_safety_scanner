@@ -57,6 +57,49 @@ async def search_ingredients(extracted_text: str) -> list[dict]:
 			serialized["_id"] = str(serialized["_id"])
 		return serialized
 
+	def is_edit_distance_leq_one(a: str, b: str) -> bool:
+		"""OCR 1글자 오인식 보정용: 편집 거리 1 이하만 허용"""
+		if a == b:
+			return True
+
+		len_a = len(a)
+		len_b = len(b)
+		if abs(len_a - len_b) > 1:
+			return False
+
+		# 길이가 같은 경우: 치환 1회만 허용
+		if len_a == len_b:
+			diff = 0
+			for char_a, char_b in zip(a, b):
+				if char_a != char_b:
+					diff += 1
+					if diff > 1:
+						return False
+			return diff == 1
+
+		# 길이가 다른 경우: 삽입/삭제 1회만 허용
+		if len_a > len_b:
+			longer, shorter = a, b
+		else:
+			longer, shorter = b, a
+
+		i = 0
+		j = 0
+		diff = 0
+		while i < len(longer) and j < len(shorter):
+			if longer[i] == shorter[j]:
+				i += 1
+				j += 1
+				continue
+
+			diff += 1
+			if diff > 1:
+				return False
+			i += 1
+
+		# 남은 1글자는 허용됨
+		return True
+
 	# 1. DB에서 모든 성분 로드
 	try:
 		cursor = db_service.db["ingredients"].find({})
@@ -116,6 +159,7 @@ async def search_ingredients(extracted_text: str) -> list[dict]:
 
 	# 추출된 단어도 정규화된 set으로 변환
 	normalized_extracted: set[str] = set(normalize(word) for word in extracted_words if normalize(word))
+	normalized_extracted_list = sorted(normalized_extracted, key=len, reverse=True)
 
 	if not normalized_extracted:
 		return []
@@ -125,25 +169,52 @@ async def search_ingredients(extracted_text: str) -> list[dict]:
 	seen_names: set[str] = set()
 
 	# 정확일치(정규화된 맵 키와 비교)
-	for normalized_extracted_word in normalized_extracted:
+	for normalized_extracted_word in normalized_extracted_list:
 		if normalized_extracted_word in normalized_ingredient_map:
 			if normalized_extracted_word not in seen_names:
 				matched_ingredients.append(serialize_document(normalized_ingredient_map[normalized_extracted_word]))
 				seen_names.add(normalized_extracted_word)
 
-	# 부분일치 (정규화된 이름에 단어가 포함되거나, 단어에 이름이 포함)
-	for normalized_extracted_word in normalized_extracted:
+	# 부분일치(과매칭 방지)
+	# - 한 방향 포함만 허용: DB 성분명이 OCR 토큰에 포함될 때
+	for normalized_extracted_word in normalized_extracted_list:
 		if normalized_extracted_word in seen_names:
+			continue
+
+		if len(normalized_extracted_word) < 2:
 			continue
 
 		for normalized_db_name, document in normalized_ingredient_map.items():
 			if normalized_db_name in seen_names:
 				continue
 
-			if (normalized_db_name in normalized_extracted_word or
-				normalized_extracted_word in normalized_db_name):
-				matched_ingredients.append(serialize_document(document))
-				seen_names.add(normalized_db_name)
+			if len(normalized_db_name) < 2:
+				continue
+
+			is_contains_match = normalized_db_name in normalized_extracted_word
+
+			# 한글 성분명에 한해 OCR 1글자 오차(검↔감, 라↔리 등) 보정
+			is_typo_tolerant_match = (
+				not is_contains_match
+				and len(normalized_db_name) >= 4
+				and len(normalized_extracted_word) <= len(normalized_db_name) + 1
+				and re.fullmatch(r"[가-힣]+", normalized_db_name) is not None
+				and re.fullmatch(r"[가-힣]+", normalized_extracted_word) is not None
+				and is_edit_distance_leq_one(normalized_db_name, normalized_extracted_word)
+			)
+
+			if not is_contains_match and not is_typo_tolerant_match:
+				continue
+
+			if is_typo_tolerant_match:
+				logger.info(
+					"[OCR MATCH] typo-tolerant match: extracted=%s, ingredient=%s",
+					normalized_extracted_word,
+					normalized_db_name,
+				)
+
+			matched_ingredients.append(serialize_document(document))
+			seen_names.add(normalized_db_name)
 
 	return matched_ingredients
 
