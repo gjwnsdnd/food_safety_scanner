@@ -42,6 +42,16 @@ async def search_ingredients(extracted_text: str) -> list[dict]:
 	if not text:
 		return []
 
+	# OCR에서 줄바꿈이 성분 이름 사이에 들어가는 경우가 있음(e.g. "자일\n리톨30%").
+	# 분석 전 줄바꿈을 제거하여 '자일리톨'과 같이 단어가 분리되지 않도록 한다.
+	try:
+		orig_text = text
+		text = text.replace("\r", "").replace("\n", "")
+		if text != orig_text:
+			logger.info("[OCR DEBUG] removed newlines from extracted_text")
+	except Exception:
+		logger.exception("[OCR DEBUG] failed to normalize newlines in extracted_text")
+
 	db_service = get_db_service()
 	if db_service.db is None:
 		return []
