@@ -13,11 +13,9 @@ router = APIRouter(prefix="/api", tags=["scan"])
 
 class IngredientSearchResult(BaseModel):
     name: str = Field(..., description="성분명")
-    eng_name: str = Field(..., description="영문명")
-    classification: str = Field(..., description="분류")
     description: str = Field(default="", description="성분 설명")
     caution: str = Field(default="", description="주의사항")
-    source: str = Field(..., description="데이터 출처")
+    uses: str = Field(default="", description="용도")
 
 
 class ScanSearchResponse(BaseModel):
@@ -33,19 +31,6 @@ class OcrOnlyResponse(BaseModel):
     extracted_text: str = Field(default="", description="OCR 추출 텍스트")
     ingredients: list[dict] = Field(default_factory=list, description="검색된 성분 목록")
     ingredient_count: int = Field(default=0, ge=0, description="검색된 성분 개수")
-
-
-async def _find_detail_by_name(db_service, ingredient_name: str) -> dict[str, str] | None:
-    # MongoDB의 ingredients 컬렉션에서 성분 상세정보를 조회합니다.
-    try:
-        detail = await db_service.db["ingredients"].find_one(
-            {"name": ingredient_name},
-            {"_id": 0, "name": 0},
-        )
-        return detail
-    except Exception:
-        logger.exception("Failed to fetch ingredient detail: ingredient_name=%s", ingredient_name)
-        return None
 
 
 @router.post("/scan", response_model=ScanSearchResponse)
@@ -72,19 +57,12 @@ async def scan_ingredients(product_name: str = Query(..., min_length=1, descript
 
         ingredients = []
         for document in documents:
-            ingredient_name = str(document.get("name", ""))
-            detail = await _find_detail_by_name(db_service, ingredient_name)
-            if detail is None:
-                detail = {}
-
             ingredients.append(
                 IngredientSearchResult(
-                    name=ingredient_name,
-                    eng_name=str(document.get("eng_name", "")),
-                    classification=str(document.get("classification", "")),
-                    description=detail.get("description", ""),
-                    caution=detail.get("caution", ""),
-                    source=str(document.get("source", "")),
+                    name=str(document.get("name", "")),
+                    description=str(document.get("description", "")),
+                    caution=str(document.get("caution", "")),
+                    uses=str(document.get("uses", "")),
                 )
             )
 

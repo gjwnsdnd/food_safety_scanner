@@ -102,7 +102,7 @@ async def search_ingredients(extracted_text: str) -> list[dict]:
 
 	# 1. DB에서 모든 성분 로드
 	try:
-		cursor = db_service.db["ingredients"].find({})
+		cursor = db_service.db["food_ingredients"].find({})
 		all_documents = await cursor.to_list(length=5000)
 	except Exception:
 		logger.exception("Failed to load all ingredients from database")
