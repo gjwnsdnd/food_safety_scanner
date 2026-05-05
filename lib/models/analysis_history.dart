@@ -32,8 +32,12 @@ class AnalysisHistory extends HiveObject {
       return 0;
     }
 
+    String normalize(String value) {
+      return value.replaceAll(RegExp(r'\s+'), '').toLowerCase();
+    }
+
     final avoidSet = userAvoidIngredients
-        .map((item) => item.replaceAll(RegExp(r'\s+'), '').toLowerCase())
+        .map(normalize)
         .where((item) => item.isNotEmpty)
         .toSet();
 
@@ -43,11 +47,25 @@ class AnalysisHistory extends HiveObject {
 
     var count = 0;
     for (final ingredient in ingredients) {
-      final normalizedName = ingredient.name.replaceAll(RegExp(r'\s+'), '').toLowerCase();
+      final normalizedName = normalize(ingredient.name);
       if (normalizedName.isEmpty) {
         continue;
       }
-      if (avoidSet.contains(normalizedName)) {
+
+      var isAvoided = avoidSet.contains(normalizedName);
+      if (!isAvoided) {
+        for (final avoided in avoidSet) {
+          if (avoided.isEmpty) {
+            continue;
+          }
+          if (normalizedName.contains(avoided) || avoided.contains(normalizedName)) {
+            isAvoided = true;
+            break;
+          }
+        }
+      }
+
+      if (isAvoided) {
         count += 1;
       }
     }

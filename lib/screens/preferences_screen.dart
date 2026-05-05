@@ -118,6 +118,20 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
     });
   }
 
+  void _removeSelectedIngredient(String ingredient) {
+    setState(() {
+      _selectedIngredients.remove(ingredient);
+      _activeGroupName = '';
+    });
+  }
+
+  void _clearAllSelectedIngredients() {
+    setState(() {
+      _selectedIngredients.clear();
+      _activeGroupName = '';
+    });
+  }
+
   void _selectCategory(String category) {
     setState(() {
       _selectedCategory = category;
@@ -212,6 +226,10 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
 }
 
   void _deleteGroup(String groupName) {
+    final previousGroups = List<PreferencesGroup>.from(_savedGroups);
+    final previousActiveGroupName = _activeGroupName;
+    final previousSelectedIngredients = Set<String>.from(_selectedIngredients);
+
     showDialog(
       context: context,
       builder: (BuildContext context) => AlertDialog(
@@ -223,15 +241,26 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
             child: const Text('취소'),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
               setState(() {
                 _savedGroups.removeWhere((g) => g.groupName == groupName);
                 if (_activeGroupName == groupName) {
                   _activeGroupName = '';
-                  _selectedIngredients.clear();
                 }
               });
+              final saved = await _savePreferences(showMessage: false);
+              if (!saved) {
+                setState(() {
+                  _savedGroups = previousGroups;
+                  _activeGroupName = previousActiveGroupName;
+                  _selectedIngredients = previousSelectedIngredients;
+                });
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('그룹 삭제 저장에 실패했습니다.')),
+                );
+                return;
+              }
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text('그룹 "$groupName"이(가) 삭제되었습니다.')),
               );
@@ -243,7 +272,40 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
     );
   }
 
-  Future<void> _savePreferences() async {
+  Widget _buildSelectedIngredientChip(String ingredient, double scale) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: scale * 12, vertical: scale * 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEAF8EF),
+        borderRadius: BorderRadius.circular(scale * 999),
+        border: Border.all(color: const Color(0xFFC6F0D6)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            ingredient,
+            style: TextStyle(
+              fontSize: scale * 12,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFF0E7A3A),
+            ),
+          ),
+          SizedBox(width: scale * 6),
+          GestureDetector(
+            onTap: () => _removeSelectedIngredient(ingredient),
+            child: Icon(
+              Icons.close_rounded,
+              size: scale * 14,
+              color: const Color(0xFF0E7A3A),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<bool> _savePreferences({bool showMessage = true}) async {
     try {
       setState(() => _isSaving = true);
       final response = await _apiService.savePreferences(
@@ -265,14 +327,20 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
         });
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('기피 성분이 저장되었습니다.')),
-      );
+      if (showMessage) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('기피 성분이 저장되었습니다.')),
+        );
+      }
+      return true;
     } catch (e) {
       setState(() => _isSaving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('저장 실패: $e')),
-      );
+      if (showMessage) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('저장 실패: $e')),
+        );
+      }
+      return false;
     }
   }
 
@@ -406,43 +474,63 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
                                   color: const Color(0xFF7C8798),
                                 ),
                                 SizedBox(width: s(6)),
-                                Text(
-                                  '현재 선택 성분',
-                                  style: TextStyle(
-                                    fontSize: s(13),
-                                    fontWeight: FontWeight.w700,
-                                    color: const Color(0xFF334155),
+                                Expanded(
+                                  child: Text(
+                                    '현재 선택 성분',
+                                    style: TextStyle(
+                                      fontSize: s(13),
+                                      fontWeight: FontWeight.w700,
+                                      color: const Color(0xFF334155),
+                                    ),
+                                  ),
+                                ),
+                                TextButton(
+                                  onPressed: _selectedIngredients.isEmpty ? null : _clearAllSelectedIngredients,
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: const Color(0xFF0AA64E),
+                                    padding: EdgeInsets.symmetric(horizontal: s(8)),
+                                    minimumSize: Size.zero,
+                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                  child: Text(
+                                    '전체 해제',
+                                    style: TextStyle(
+                                      fontSize: s(12),
+                                      fontWeight: FontWeight.w700,
+                                    ),
                                   ),
                                 ),
                               ],
                             ),
                             SizedBox(height: s(12)),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton(
+                                onPressed: _selectedIngredients.isEmpty
+                                    ? null
+                                    : _clearAllSelectedIngredients,
+                                style: TextButton.styleFrom(
+                                  foregroundColor: const Color(0xFF0AA64E),
+                                  padding: EdgeInsets.symmetric(horizontal: s(8)),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                child: Text(
+                                  '전체 해제',
+                                  style: TextStyle(
+                                    fontSize: s(12),
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            SizedBox(height: s(8)),
                             Wrap(
                               spacing: s(8),
                               runSpacing: s(8),
-                              children: selectedIngredientList.map((ingredient) {
-                                return Container(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: s(12),
-                                    vertical: s(8),
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFEAF8EF),
-                                    borderRadius: BorderRadius.circular(s(999)),
-                                    border: Border.all(
-                                      color: const Color(0xFFC6F0D6),
-                                    ),
-                                  ),
-                                  child: Text(
-                                    ingredient,
-                                    style: TextStyle(
-                                      fontSize: s(12),
-                                      fontWeight: FontWeight.w600,
-                                      color: const Color(0xFF0E7A3A),
-                                    ),
-                                  ),
-                                );
-                              }).toList(),
+                              children: selectedIngredientList
+                                  .map((ingredient) => _buildSelectedIngredientChip(ingredient, s(1)))
+                                  .toList(growable: false),
                             ),
                           ],
                         ),
@@ -526,8 +614,7 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
                                             ),
                                             SizedBox(width: s(8)),
                                             GestureDetector(
-                                              onTap: () =>
-                                                  _deleteGroup(group.groupName),
+                                              onTap: () => _deleteGroup(group.groupName),
                                               child: Icon(
                                                 Icons.close_rounded,
                                                 size: s(14),
