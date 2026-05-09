@@ -18,9 +18,12 @@ class ApiService {
 
 	final Dio _dio;
 
-	Future<List<String>> getAllIngredients() async {
+	Future<List<String>> getAllIngredients({String? category}) async {
 		try {
-			final response = await _dio.get<Map<String, dynamic>>('/api/ingredients');
+			final response = await _dio.get<Map<String, dynamic>>(
+				'/api/ingredients',
+				queryParameters: category != null ? {'category': category} : null,
+			);
 			final data = response.data;
 			if (data == null || data['ingredients'] == null) {
 				return [];

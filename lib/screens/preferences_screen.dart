@@ -90,13 +90,11 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
   void _filterIngredients() {
     final query = _searchController.text.toLowerCase();
 
-    final categoryItems = _selectedCategory == '전체' ? _allIngredients : <String>[];
-
     setState(() {
       if (query.isEmpty) {
-        _filteredIngredients = List.from(categoryItems);
+        _filteredIngredients = List.from(_allIngredients);
       } else {
-        _filteredIngredients = categoryItems.where((item) => item.contains(query)).toList();
+        _filteredIngredients = _allIngredients.where((item) => item.contains(query)).toList();
       }
     });
   }
@@ -126,12 +124,39 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
     });
   }
 
+  Future<void> _loadIngredientsByCategory(String category) async {
+    setState(() => _isLoading = true);
+    try {
+      final ingredients = await _apiService.getAllIngredients(
+        category: category == '전체' ? null : category,
+      );
+      ingredients.sort((a, b) => a.compareTo(b));
+      if (mounted) {
+        setState(() {
+          _allIngredients = ingredients;
+          _isLoading = false;
+        });
+        _filterIngredients();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _allIngredients = [];
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('성분 목록 불러오기 실패: $e')),
+        );
+      }
+    }
+  }
+
   void _selectCategory(String category) {
     setState(() {
       _selectedCategory = category;
       _searchController.clear();
     });
-    _filterIngredients();
+    _loadIngredientsByCategory(category);
   }
 
   void _applyGroup(PreferencesGroup group) {
