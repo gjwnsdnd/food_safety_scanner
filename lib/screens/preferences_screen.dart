@@ -3,7 +3,7 @@ import '../services/api_service.dart';
 import '../models/preferences_model.dart';
 
 class PreferencesScreen extends StatefulWidget {
-  const PreferencesScreen({Key? key}) : super(key: key);
+  const PreferencesScreen({super.key});
 
   @override
   State<PreferencesScreen> createState() => _PreferencesScreenState();
@@ -13,35 +13,8 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
   final ApiService _apiService = ApiService();
   final String _userId = 'default';
 
-  // MongoDB에 저장된 17개 성분 데이터 (가나다순)
-  static const List<String> _allIngredients = [
-    '계란',
-    '과라나',
-    '꿀',
-    '대두',
-    '땅콩',
-    '밀',
-    '새우',
-    '아라비아검',
-    '아황산나트륨',
-    '안식향산',
-    '알코올(에탄올)',
-    '우유',
-    '적색제40호',
-    '젤라틴',
-    '카르민',
-    '카페인',
-    '황색제 4호',
-    'L-글루탐산나트륨',
-  ];
-
-  static const Map<String, List<String>> _categoryIngredients = {
-    '알레르기': ['계란', '대두', '땅콩', '밀', '새우', '우유'],
-    '비건': ['젤라틴', '카르민'],
-    '임산부': ['과라나', '카페인', '안식향산', '알코올(에탄올)'],
-    '영유아': ['꿀', '아황산나트륨', '적색제40호', '황색제 4호', 'L-글루탐산나트륨'],
-  };
-
+  // 전체 성분 목록 (동적 로드)
+  List<String> _allIngredients = [];
   late TextEditingController _searchController;
   String _selectedCategory = '전체';
   Set<String> _selectedIngredients = {};
@@ -56,8 +29,29 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
     super.initState();
     _searchController = TextEditingController();
     _searchController.addListener(_filterIngredients);
-    _filteredIngredients = List.from(_allIngredients);
-    _loadPreferences();
+    _loadAllIngredientsAndPreferences();
+  }
+
+  Future<void> _loadAllIngredientsAndPreferences() async {
+    setState(() => _isLoading = true);
+    try {
+      final ingredients = await _apiService.getAllIngredients();
+      ingredients.sort((a, b) => a.compareTo(b));
+      if (mounted) {
+        setState(() {
+          _allIngredients = ingredients;
+          _filteredIngredients = List.from(_allIngredients);
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _allIngredients = []);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('전체 성분 목록 불러오기 실패: $e')),
+        );
+      }
+    }
+    await _loadPreferences();
   }
 
   @override
@@ -95,8 +89,8 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
 
   void _filterIngredients() {
     final query = _searchController.text.toLowerCase();
-    final categoryItems =
-        _selectedCategory == '전체' ? _allIngredients : _categoryIngredients[_selectedCategory] ?? [];
+
+    final categoryItems = _selectedCategory == '전체' ? _allIngredients : <String>[];
 
     setState(() {
       if (query.isEmpty) {
@@ -188,6 +182,7 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
 
   try {
     setState(() => _isSaving = true);
+    final messenger = ScaffoldMessenger.of(context);
 
     // 새 그룹 생성
     final existing = _savedGroups.indexWhere((g) => g.groupName == groupName);
@@ -212,12 +207,18 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
       _savedGroups.map((g) => g.toJson()).toList(),
     );
 
+    if (!mounted) {
+      return;
+    }
     setState(() => _isSaving = false);
 
-    ScaffoldMessenger.of(context).showSnackBar(
+    messenger.showSnackBar(
       SnackBar(content: Text('그룹 "$groupName"이(가) 저장되었습니다.')),
     );
   } catch (e) {
+    if (!mounted) {
+      return;
+    }
     setState(() => _isSaving = false);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('그룹 저장 실패: $e')),
@@ -243,6 +244,7 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
           TextButton(
             onPressed: () async {
               Navigator.pop(context);
+              final messenger = ScaffoldMessenger.of(context);
               setState(() {
                 _savedGroups.removeWhere((g) => g.groupName == groupName);
                 if (_activeGroupName == groupName) {
@@ -250,18 +252,21 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
                 }
               });
               final saved = await _savePreferences(showMessage: false);
+              if (!mounted) {
+                return;
+              }
               if (!saved) {
                 setState(() {
                   _savedGroups = previousGroups;
                   _activeGroupName = previousActiveGroupName;
                   _selectedIngredients = previousSelectedIngredients;
                 });
-                ScaffoldMessenger.of(context).showSnackBar(
+                messenger.showSnackBar(
                   const SnackBar(content: Text('그룹 삭제 저장에 실패했습니다.')),
                 );
                 return;
               }
-              ScaffoldMessenger.of(context).showSnackBar(
+              messenger.showSnackBar(
                 SnackBar(content: Text('그룹 "$groupName"이(가) 삭제되었습니다.')),
               );
             },
@@ -328,15 +333,23 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
       }
 
       if (showMessage) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        if (!mounted) {
+          return true;
+        }
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.showSnackBar(
           const SnackBar(content: Text('기피 성분이 저장되었습니다.')),
         );
       }
       return true;
     } catch (e) {
+      if (!mounted) {
+        return false;
+      }
       setState(() => _isSaving = false);
       if (showMessage) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.showSnackBar(
           SnackBar(content: Text('저장 실패: $e')),
         );
       }
@@ -349,9 +362,7 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
     final screenWidth = MediaQuery.sizeOf(context).width;
     final scale = (screenWidth / 390).clamp(0.88, 1.0);
     double s(double value) => value * scale;
-    final selectedIngredientList = _allIngredients
-        .where(_selectedIngredients.contains)
-        .toList();
+    final selectedIngredientList = _allIngredients.where(_selectedIngredients.contains).toList();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FB),
@@ -501,28 +512,6 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
                                   ),
                                 ),
                               ],
-                            ),
-                            SizedBox(height: s(12)),
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: TextButton(
-                                onPressed: _selectedIngredients.isEmpty
-                                    ? null
-                                    : _clearAllSelectedIngredients,
-                                style: TextButton.styleFrom(
-                                  foregroundColor: const Color(0xFF0AA64E),
-                                  padding: EdgeInsets.symmetric(horizontal: s(8)),
-                                  minimumSize: Size.zero,
-                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                ),
-                                child: Text(
-                                  '전체 해제',
-                                  style: TextStyle(
-                                    fontSize: s(12),
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
                             ),
                             SizedBox(height: s(8)),
                             Wrap(
@@ -717,9 +706,9 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
                                   physics: const NeverScrollableScrollPhysics(),
                                   padding: EdgeInsets.zero,
                                   itemCount: _filteredIngredients.length,
-                                  separatorBuilder: (_, __) => Divider(
+                                  separatorBuilder: (_, __) => const Divider(
                                     height: 1,
-                                    color: const Color(0xFFF1F5F9),
+                                    color: Color(0xFFF1F5F9),
                                   ),
                                   itemBuilder: (context, index) {
                                     final ingredient = _filteredIngredients[index];
@@ -790,9 +779,7 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
                 width: double.infinity,
                 height: s(54),
                 child: ElevatedButton(
-                  onPressed: _selectedIngredients.isEmpty || _isSaving
-                      ? null
-                      : _savePreferences,
+                  onPressed: _isSaving ? null : _savePreferences,
                   style: ElevatedButton.styleFrom(
                     elevation: 0,
                     backgroundColor: const Color(0xFF0AA64E),

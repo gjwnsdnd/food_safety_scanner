@@ -7,7 +7,13 @@ router = APIRouter(prefix="/api", tags=["ingredients"])
 
 @router.get("/ingredients")
 async def get_ingredients():
-    return {"ingredients": []}
+    db_service = get_db_service()
+    if db_service.db is None:
+        return {"ingredients": []}
+    cursor = db_service.db["food_ingredients"].find({}, {"_id": 0, "name": 1})
+    ingredients = [doc["name"] for doc in await cursor.to_list(length=5000) if "name" in doc]
+    ingredients.sort()  # 가나다순 정렬
+    return {"ingredients": ingredients}
 
 
 @router.get("/ingredients/detail")

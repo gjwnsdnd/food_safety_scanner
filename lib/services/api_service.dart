@@ -18,6 +18,21 @@ class ApiService {
 
 	final Dio _dio;
 
+	Future<List<String>> getAllIngredients() async {
+		try {
+			final response = await _dio.get<Map<String, dynamic>>('/api/ingredients');
+			final data = response.data;
+			if (data == null || data['ingredients'] == null) {
+				return [];
+			}
+			return List<String>.from(data['ingredients']);
+		} on DioException catch (e) {
+			return _handleDioError(e);
+		} catch (e) {
+			throw Exception('전체 성분 목록 조회 중 오류가 발생했습니다: $e');
+		}
+	}
+
 	Future<Map<String, dynamic>> scanIngredients(String productName) async {
 		if (productName.trim().isEmpty) {
 			throw ArgumentError('productName cannot be empty');
