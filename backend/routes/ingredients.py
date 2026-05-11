@@ -21,9 +21,10 @@ async def get_ingredients(category: str = Query(None)):
 
     normalized_names: set[str] = set()
     for document in documents:
-        if "name" not in document:
+        raw_name = document.get("name")
+        if not isinstance(raw_name, str):
             continue
-        normalized_name = normalize_ingredient_name(str(document.get("name", "")))
+        normalized_name = normalize_ingredient_name(raw_name)
         if normalized_name:
             normalized_names.add(normalized_name)
 

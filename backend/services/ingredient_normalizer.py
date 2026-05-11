@@ -4,7 +4,7 @@ import re
 
 _DASH_VARIANTS_PATTERN = re.compile(r"[‐‑‒–—―﹘﹣－]")
 _MULTI_SPACE_PATTERN = re.compile(r"\s+")
-_STEREO_PREFIX_PATTERN = re.compile(r"^(?:d\s*,\s*l|dl|d|l)\s*(?:-|\s)\s*", re.IGNORECASE)
+_STEREO_PREFIX_PATTERN = re.compile(r"^(?:d\s*,\s*l|dl|d|l)\s*-\s*", re.IGNORECASE)
 _PARENTHESIS_GROUP_PATTERN = re.compile(r"\([^)]*\)")
 _MATCHING_SPACE_HYPHEN_PATTERN = re.compile(r"[\s-]+")
 
