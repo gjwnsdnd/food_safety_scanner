@@ -37,7 +37,7 @@ class IngredientsRouteTests(unittest.IsolatedAsyncioTestCase):
                 {"name": "말티톨"},
                 {"name": "L-아스코르빈산(비세균성)"},
                 {"name": "DL-자일리톨"},
-                {"name": "D,L-자일리톨"},
+                {"name": "N-아세틸글루코사민"},
                 {"name": " "},
             ]
         )
@@ -46,7 +46,7 @@ class IngredientsRouteTests(unittest.IsolatedAsyncioTestCase):
         with patch("backend.routes.ingredients.get_db_service", return_value=fake_db_service):
             response = await get_ingredients(category=None)
 
-        self.assertEqual(response, {"ingredients": ["말티톨", "아스코르빈산", "자일리톨"]})
+        self.assertEqual(response, {"ingredients": ["말티톨", "아세틸글루코사민", "아스코르빈산", "자일리톨"]})
         self.assertEqual(collection.query, {})
 
     async def test_get_ingredients_applies_category_filter_before_normalizing(self):
