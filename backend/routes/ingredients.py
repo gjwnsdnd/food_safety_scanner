@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Query
 
 from backend.services.db_service import get_db_service
+from backend.services.ingredient_normalizer import normalize_ingredient_name
 
 router = APIRouter(prefix="/api", tags=["ingredients"])
 
@@ -16,8 +17,17 @@ async def get_ingredients(category: str = Query(None)):
         query = {"categories": category}
         
     cursor = db_service.db["food_ingredients"].find(query, {"_id": 0, "name": 1})
-    ingredients = [doc["name"] for doc in await cursor.to_list(length=5000) if "name" in doc]
-    ingredients.sort()  # 가나다순 정렬
+    documents = await cursor.to_list(length=5000)
+
+    normalized_names: set[str] = set()
+    for document in documents:
+        if "name" not in document:
+            continue
+        normalized_name = normalize_ingredient_name(str(document.get("name", "")))
+        if normalized_name:
+            normalized_names.add(normalized_name)
+
+    ingredients = sorted(normalized_names)  # 가나다순 정렬
     return {"ingredients": ingredients}
 
 
