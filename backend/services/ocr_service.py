@@ -9,6 +9,7 @@ from google.auth.exceptions import DefaultCredentialsError
 from google.cloud import vision
 
 from backend.services.db_service import get_db_service
+from backend.services.ingredient_normalizer import normalize_ingredient_for_matching
 
 logger = logging.getLogger(__name__)
 
@@ -55,10 +56,6 @@ async def search_ingredients(extracted_text: str) -> list[dict]:
 	db_service = get_db_service()
 	if db_service.db is None:
 		return []
-
-	def normalize(value: str) -> str:
-		"""공백과 하이픈을 제거하고 소문자로 변환"""
-		return re.sub(r"[\s-]+", "", value.lower())
 
 	def serialize_document(document: dict) -> dict:
 		"""_id를 str로 변환하여 JSON 직렬화 가능하게 함"""
@@ -126,7 +123,7 @@ async def search_ingredients(extracted_text: str) -> list[dict]:
 	for document in all_documents:
 		original_name = str(document.get("name", "")).strip()
 		if original_name:
-			normalized_name = normalize(original_name)
+			normalized_name = normalize_ingredient_for_matching(original_name)
 			if normalized_name:
 				normalized_ingredient_map[normalized_name] = document
 
@@ -168,7 +165,11 @@ async def search_ingredients(extracted_text: str) -> list[dict]:
 		return []
 
 	# 추출된 단어도 정규화된 set으로 변환
-	normalized_extracted: set[str] = set(normalize(word) for word in extracted_words if normalize(word))
+	normalized_extracted: set[str] = set()
+	for word in extracted_words:
+		normalized_word = normalize_ingredient_for_matching(word)
+		if normalized_word:
+			normalized_extracted.add(normalized_word)
 	normalized_extracted_list = sorted(normalized_extracted, key=len, reverse=True)
 
 	if not normalized_extracted:
