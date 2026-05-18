@@ -24,6 +24,10 @@ class _CameraGalleryScreenState extends State<CameraGalleryScreen> {
   Uint8List? _selectedImageBytes;
   bool _isAnalyzing = false;
 
+  static const String _qualityWarningTitle = '촬영 품질 확인';
+  static const String _qualityWarningMessage =
+      '빛 반사가 감지되어 성분 인식이 부정확할 수 있어요. 다시 촬영하시겠어요?';
+
   Future<void> _cropImage() async {
     if (_selectedImage == null) {
       return;
@@ -101,6 +105,20 @@ class _CameraGalleryScreenState extends State<CameraGalleryScreen> {
     setState(() => _isAnalyzing = true);
 
     try {
+      final quality = await _apiService.checkScanQuality(_selectedImage!.path);
+      final warning = (quality['warning'] == true);
+
+      if (warning) {
+        final shouldRetake = await _showQualityWarningDialog();
+        if (!mounted) {
+          return;
+        }
+        if (shouldRetake) {
+          await _pickFromCamera();
+          return;
+        }
+      }
+
       final result = await _apiService.scanImageWithOcr(_selectedImage!.path);
       if (!mounted) {
         return;
@@ -134,6 +152,31 @@ class _CameraGalleryScreenState extends State<CameraGalleryScreen> {
         setState(() => _isAnalyzing = false);
       }
     }
+  }
+
+  Future<bool> _showQualityWarningDialog() async {
+    final decision = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text(_qualityWarningTitle),
+          content: const Text(_qualityWarningMessage),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('뒤로 가기'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('그대로 분석'),
+            ),
+          ],
+        );
+      },
+    );
+
+    return decision ?? false;
   }
 
   @override

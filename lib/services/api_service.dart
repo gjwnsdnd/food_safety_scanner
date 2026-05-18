@@ -118,6 +118,40 @@ class ApiService {
 		}
 	}
 
+	Future<Map<String, dynamic>> checkScanQuality(String imagePath) async {
+		if (imagePath.trim().isEmpty) {
+			throw ArgumentError('imagePath cannot be empty');
+		}
+
+		try {
+			final fileName = imagePath.split(RegExp(r'[\\/]')).last;
+			final formData = FormData.fromMap({
+				'file': await MultipartFile.fromFile(imagePath, filename: fileName),
+			});
+
+			final response = await _dio.post<Map<String, dynamic>>(
+				'/api/scan/quality',
+				data: formData,
+				options: Options(
+					headers: {
+						'Content-Type': 'multipart/form-data',
+					},
+				),
+			);
+
+			final data = response.data;
+			if (data == null) {
+				throw Exception('서버 응답이 비어 있습니다.');
+			}
+
+			return data;
+		} on DioException catch (e) {
+			_handleDioError(e);
+		} catch (e) {
+			throw Exception('이미지 품질 확인 중 오류가 발생했습니다: $e');
+		}
+	}
+
 	Future<Map<String, dynamic>> getPreferences(String userId) async {
 		try {
 			final response = await _dio.get<Map<String, dynamic>>(
